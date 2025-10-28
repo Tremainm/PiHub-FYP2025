@@ -1,6 +1,7 @@
 fastapi
 uvicorn
-paho-mqtt
 sqlalchemy
-asyncpg
+pydantic[email]
+psycopg2-binary
+paho-mqtt
 python-dotenv
