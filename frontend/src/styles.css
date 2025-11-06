@@ -14,12 +14,15 @@ h1 {
 }
 
 .tile-grid {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 20px;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  justify-content: center;
 }
 
 .tile {
+  flex: 0 1 250px;   /* flex-grow=0, flex-shrink=1, base size 250px */
+  max-width: 250px;
   background: #ffffff;
   border-radius: 12px;
   padding: 20px;
@@ -27,12 +30,16 @@ h1 {
   text-align: center;
 }
 
+.tile:hover {
+  transform: scale(1.05);
+}
+
 .device-tile {
-  border-left: 6px solid #3498db;
+  background: gray;
 }
 
 .sensor-tile {
-  border-left: 6px solid #2ecc71;
+  background: mediumseagreen;
 }
 
 button {
