@@ -1,17 +1,20 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { MdDashboard, MdSettings, MdSensors, MdDevices } from "react-icons/md";
 import "./Navbar.css"; 
 
 export default function Navbar() {
   return (
     <nav className="navbar">
-      <div className="nav-logo">PiHub</div>
+      <ul className="nav-links">
+        <li><Link to="/">PiHub</Link></li>
+      </ul>
 
       <ul className="nav-links">
-        <li><Link to="/">Dashboard</Link></li>
-        <li><Link to="/devices">Devices</Link></li>
-        <li><Link to="/sensors">Sensors</Link></li>
-        <li><Link to="/settings">Settings</Link></li>
+        <li><Link to="/"><MdDashboard /> </Link></li>
+        <li><Link to="/devices"><MdDevices /> </Link></li>
+        <li><Link to="/sensors"><MdSensors /> </Link></li>
+        <li><Link to="/settings"><MdSettings /> </Link></li>
       </ul>
     </nav>
   );
