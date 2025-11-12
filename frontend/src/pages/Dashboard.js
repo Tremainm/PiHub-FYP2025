@@ -11,7 +11,7 @@ export default function Dashboard() {
   // const [temp, setTemp] = useState(22.4);
 
   const [devices, setDevices] = useState([]);
-  const [sensors, setSensors] = useState([]);
+  // const [sensors, setSensors] = useState([]);
 
   const toggleLED = () => {
     setLedOn(!ledOn);
@@ -26,13 +26,13 @@ export default function Dashboard() {
     try {
       const [devRes, sensRes] = await Promise.all([
         getDevices(),
-        getSensors(),
+        // getSensors(),
       ]);
 
       console.log("Devices:", devRes);
 
       setDevices(devRes);
-      setSensors(sensRes);
+      // setSensors(sensRes);
     } catch (err) {
       console.error("Failed to fetch:", err);
     }
