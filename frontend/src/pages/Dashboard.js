@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { getDevices, toggleDevice } from "../api/devices";
 import { getSensors } from "../api/sensors";
 import DeviceTile from "../components/DeviceTile";
@@ -7,18 +7,19 @@ import "./../styles.css";
 
 export default function Dashboard() {
   // Mock device + sensor state
-  // const [ledOn, setLedOn] = useState(false);
+  const [ledOn, setLedOn] = useState(false);
   // const [temp, setTemp] = useState(22.4);
 
   const [devices, setDevices] = useState([]);
   const [sensors, setSensors] = useState([]);
 
-  // const toggleLED = () => {
-  //   setLedOn(!ledOn);
-  // };
+  const toggleLED = () => {
+    setLedOn(!ledOn);
+  };
 
     useEffect(() => {
-    load();
+      console.log("useEffect triggered");
+      load();
   }, []);
   
   async function load() {
@@ -27,6 +28,8 @@ export default function Dashboard() {
         getDevices(),
         getSensors(),
       ]);
+
+      console.log("Devices:", devRes);
 
       setDevices(devRes);
       setSensors(sensRes);
@@ -51,11 +54,11 @@ export default function Dashboard() {
       <div className="tile-grid">
 
         {/* LED Device Tile */}
-        {/* <DeviceTile
+        <DeviceTile
           name="Living Room LED"
           status={ledOn ? "ON" : "OFF"}
           onToggle={toggleLED}
-        /> */}
+        />
 
         {devices.map((d) => (
           <DeviceTile
@@ -69,13 +72,13 @@ export default function Dashboard() {
         {/* Sensor Tiles */}
         {/* <SensorTile label="Temperature" value={`${temp} C`} /> */}
 
-        {sensors.map((s) => (
+        {/* {sensors.map((s) => (
           <SensorTile
             key={s.id}
             label={s.sensor_type}
             value={s.value}
           />
-        ))}
+        ))} */}
 
       </div>
     </div>

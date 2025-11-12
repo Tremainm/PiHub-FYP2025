@@ -16,9 +16,11 @@ class UserRead(BaseModel):
 
 class DeviceCreate(BaseModel):
     name: DeviceNameStr
+    owner_id: int
 
 class DeviceRead(BaseModel):
     id: int
     name: str
     status: str
+    owner_id: int
     model_config = ConfigDict(from_attributes=True)

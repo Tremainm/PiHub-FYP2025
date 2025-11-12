@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = "https://urban-acorn-q7qrg554gxwxh64x9-8000.app.github.dev";
 
 export default async function request(endpoint, options = {}) {
   const res = await fetch(`${API_BASE_URL}${endpoint}`, {
