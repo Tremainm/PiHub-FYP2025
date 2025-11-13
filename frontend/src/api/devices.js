@@ -8,6 +8,6 @@ export function getDevices() {
 // POST toggle device
 export function toggleDevice(id) {
   return request(`/api/devices/${id}/toggle`, {
-    method: "POST",
+    method: "PUT",
   });
 }
