@@ -1,14 +1,16 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from .matter_client import read_temperature
 from .database import engine, SessionLocal
 from .models import Base, UserDB, DeviceDB, SensorDB
 from .schemas import UserCreate, UserRead, DeviceCreate, DeviceRead, SensorCreate, SensorRead
 
 app = FastAPI()
 Base.metadata.create_all(bind=engine)
+# router = APIRouter()
 
 app.add_middleware(
     CORSMiddleware,
@@ -119,6 +121,17 @@ def add_sensor_reading(payload: SensorCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Device status not updated")
 
     return reading
+
+@app.get("/matter/temperature")
+def get_matter_temperature():
+    """
+    Returns the latest Matter temperature from ESP32.
+    """
+    try:
+        temp_c = read_temperature()
+        return {"temperature_celsius": temp_c}
+    except Exception as e:
+        return {"error": str(e)}
 
 # JUST FOR TESTING
 @app.post("/api/sensors/seed")

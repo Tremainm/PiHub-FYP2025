@@ -30,10 +30,12 @@ class DeviceRead(BaseModel):
 class SensorCreate(BaseModel):
     sensor_type: SensorTypeStr
     value: float
+    is_matter: bool = False
 
 class SensorRead(BaseModel):
     id: int
     sensor_type: SensorTypeStr
     value: float
+    is_matter: bool = False
     timestamp: datetime
     model_config = ConfigDict(from_attributes=True)

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy import func, String, ForeignKey, Float, DateTime
+from sqlalchemy import func, String, ForeignKey, Float, DateTime, Boolean
 from datetime import datetime, timezone
 
 class Base(DeclarativeBase):
@@ -25,5 +25,6 @@ class SensorDB(Base):
     __tablename__ = "sensors"
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     sensor_type: Mapped[str] = mapped_column(String, nullable=False)
+    is_matter = mapped_column(Boolean, default=False)
     value: Mapped[float] = mapped_column(Float, nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
