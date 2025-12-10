@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from .matter_client import read_temperature
 from .database import engine, SessionLocal
@@ -97,10 +97,59 @@ def toggle_device(device_id: int, db: Session = Depends(get_db)):
 
     return device
 
-@app.get("/api/sensors", response_model=list[SensorRead])
+@app.get("/api/sensors", response_model=SensorRead)
 def list_sensors(db: Session = Depends(get_db)):
-    stmt = select(SensorDB).order_by(SensorDB.id)
-    return list(db.execute(stmt).scalars())
+    # 1. Try reading the live temperature from Matter
+    try:
+        temp_c = read_temperature()
+    except Exception:
+        temp_c = None
+
+    # 2. Save new DB entry only when the temperature is valid
+    if temp_c is not None:
+        entry = SensorDB(sensor_type="temperature", value=temp_c)
+        db.add(entry)
+        db.commit()
+
+    # Subquery: get latest timestamp for each sensor_type
+    # sub = (
+    #     select(
+    #         SensorDB.sensor_type,
+    #         func.max(SensorDB.timestamp).label("latest")
+    #     )
+    #     .group_by(SensorDB.sensor_type)
+    #     .subquery()
+    # )
+
+    # # Join back to fetch the full record
+    # stmt = (
+    #     select(SensorDB)
+    #     .join(sub,
+    #           (SensorDB.sensor_type == sub.c.sensor_type) &
+    #           (SensorDB.timestamp == sub.c.latest))
+    # )
+
+    # rows = db.execute(stmt).scalars().all()
+    # return rows
+
+    stmt = select(SensorDB).order_by(SensorDB.timestamp.desc()).limit(1)
+    row = db.execute(stmt).scalar_one_or_none()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="No sensor data")
+    
+    return row
+
+@app.get("/api/sensors", response_model=SensorRead)
+def get_latest_sensor(db: Session = Depends(get_db)):
+    stmt = select(SensorDB).order_by(SensorDB.timestamp.desc()).limit(1)
+    row = db.execute(stmt).scalar_one_or_none()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="No sensor data")
+    
+    return row
+
 
 @app.get("/api/sensors/{sensor_id}", response_model=SensorRead)
 def get_sensor(sensor_id: int, db: Session = Depends(get_db)):
@@ -115,23 +164,23 @@ def add_sensor_reading(payload: SensorCreate, db: Session = Depends(get_db)):
     db.add(reading)
     try:
         db.commit()
-        db.refresh(device)
+        db.refresh(reading)
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Device status not updated")
 
     return reading
 
-@app.get("/matter/temperature")
-def get_matter_temperature():
-    """
-    Returns the latest Matter temperature from ESP32.
-    """
-    try:
-        temp_c = read_temperature()
-        return {"temperature_celsius": temp_c}
-    except Exception as e:
-        return {"error": str(e)}
+# @app.get("/matter/temperature")
+# def get_matter_temperature():
+#     """
+#     Returns the latest Matter temperature from ESP32.
+#     """
+#     try:
+#         temp_c = read_temperature()
+#         return {"temperature_celsius": temp_c}
+#     except Exception as e:
+#         return {"error": str(e)}
 
 # JUST FOR TESTING
 @app.post("/api/sensors/seed")

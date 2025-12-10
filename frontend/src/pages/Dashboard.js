@@ -14,27 +14,41 @@ export default function Dashboard() {
   const [sensors, setSensors] = useState([]);
 
     useEffect(() => {
-      load();
+      loadDevices();
+      
+      loadSensors();
+      const interval = setInterval(loadSensors, 5000); // refresh every 5 seconds
+      return () => clearInterval(interval);
   }, []);
-  
-  async function load() {
-    try {
-      const [devRes, sensRes] = await Promise.all([
-        getDevices(),
-        getSensors(),
-      ]);
 
-      setDevices(devRes);
-      setSensors(sensRes);
-    } catch (err) {
-      console.error("Failed to fetch:", err);
-    }
+  async function loadDevices() {
+    const devRes = await getDevices();
+    setDevices(devRes);
   }
+
+  async function loadSensors() {
+    const sensRes = await getSensors();
+    setSensors([sensRes]);
+  }
+    
+  // async function load() {
+  //   try {
+  //     const [devRes, ] = await Promise.all([ 
+  //       getDevices(),
+  //       //getSensors(),
+  //     ]);
+
+  //     setDevices(devRes);
+  //     //setSensors([sensRes]);
+  //   } catch (err) {
+  //     console.error("Failed to fetch:", err);
+  //   }
+  // }
 
   async function handleToggle(id) {
     try {
       await toggleDevice(id);
-      await load();
+      await loadDevices();
     } catch (err) {
       console.error(err);
     }
@@ -57,8 +71,7 @@ export default function Dashboard() {
         {sensors.map((s) => (
           <SensorTile
             key={s.id}
-            label={s.sensor_type}
-            value={s.value}
+            sensor={s}
           />
         ))}
 
