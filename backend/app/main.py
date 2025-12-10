@@ -111,27 +111,6 @@ def list_sensors(db: Session = Depends(get_db)):
         db.add(entry)
         db.commit()
 
-    # Subquery: get latest timestamp for each sensor_type
-    # sub = (
-    #     select(
-    #         SensorDB.sensor_type,
-    #         func.max(SensorDB.timestamp).label("latest")
-    #     )
-    #     .group_by(SensorDB.sensor_type)
-    #     .subquery()
-    # )
-
-    # # Join back to fetch the full record
-    # stmt = (
-    #     select(SensorDB)
-    #     .join(sub,
-    #           (SensorDB.sensor_type == sub.c.sensor_type) &
-    #           (SensorDB.timestamp == sub.c.latest))
-    # )
-
-    # rows = db.execute(stmt).scalars().all()
-    # return rows
-
     stmt = select(SensorDB).order_by(SensorDB.timestamp.desc()).limit(1)
     row = db.execute(stmt).scalar_one_or_none()
 
@@ -170,27 +149,4 @@ def add_sensor_reading(payload: SensorCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Device status not updated")
 
     return reading
-
-# @app.get("/matter/temperature")
-# def get_matter_temperature():
-#     """
-#     Returns the latest Matter temperature from ESP32.
-#     """
-#     try:
-#         temp_c = read_temperature()
-#         return {"temperature_celsius": temp_c}
-#     except Exception as e:
-#         return {"error": str(e)}
-
-# JUST FOR TESTING
-@app.post("/api/sensors/seed")
-def seed_sensors(db: Session = Depends(get_db)):
-    dummy = [
-        SensorDB(sensor_type="temperature", value=22.1),
-        SensorDB(sensor_type="temperature", value=23.4),
-        SensorDB(sensor_type="humidity", value=44.6),
-    ]
-    db.add_all(dummy)
-    db.commit()
-    return {"added": len(dummy)}
 

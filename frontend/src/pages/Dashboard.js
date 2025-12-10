@@ -30,20 +30,6 @@ export default function Dashboard() {
     const sensRes = await getSensors();
     setSensors([sensRes]);
   }
-    
-  // async function load() {
-  //   try {
-  //     const [devRes, ] = await Promise.all([ 
-  //       getDevices(),
-  //       //getSensors(),
-  //     ]);
-
-  //     setDevices(devRes);
-  //     //setSensors([sensRes]);
-  //   } catch (err) {
-  //     console.error("Failed to fetch:", err);
-  //   }
-  // }
 
   async function handleToggle(id) {
     try {
