@@ -37,3 +37,11 @@ class SensorRead(BaseModel):
     value: float
     timestamp: datetime
     model_config = ConfigDict(from_attributes=True)
+
+class WifiIn(BaseModel):
+    ssid: str
+    password: str
+
+class CommissionIn(BaseModel):
+    code: str
+    node_id: int | None = None

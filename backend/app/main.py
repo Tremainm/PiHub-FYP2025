@@ -6,7 +6,9 @@ from sqlalchemy.exc import IntegrityError
 from .matter_client import read_temperature
 from .database import engine, SessionLocal
 from .models import Base, UserDB, DeviceDB, SensorDB
-from .schemas import UserCreate, UserRead, DeviceCreate, DeviceRead, SensorCreate, SensorRead
+from .schemas import UserCreate, UserRead, DeviceCreate, DeviceRead, SensorCreate, SensorRead, WifiIn, CommissionIn
+
+from .matter_ws import set_wifi_credentials, commission_with_code, read_temperature_c, get_nodes
 
 app = FastAPI()
 Base.metadata.create_all(bind=engine)
@@ -30,6 +32,26 @@ def get_db():
 @app.get("/health")
 def get_health():
     return { "status": "OK"}
+
+@app.post("/api/matter/wifi")
+def api_set_wifi(payload: WifiIn):
+    return set_wifi_credentials(payload.ssid, payload.password)
+
+@app.post("/api/matter/commission")
+def api_commission(payload: CommissionIn):
+    # For Wi-Fi devices: call /api/matter/wifi first.
+    return commission_with_code(payload.code, payload.node_id)
+
+@app.get("/api/matter/nodes")
+def api_nodes():
+    return get_nodes()
+
+@app.get("/api/matter/temperature/{node_id}")
+def api_temp(node_id: int):
+    temp = read_temperature_c(node_id)
+    if temp is None:
+        raise HTTPException(status_code=404, detail="Temperature not found on node (or node not reachable).")
+    return {"node_id": node_id, "temperature_c": temp}
 
 @app.get("/api/users", response_model=list[UserRead])
 def list_users(db: Session = Depends(get_db)):
@@ -97,37 +119,37 @@ def toggle_device(device_id: int, db: Session = Depends(get_db)):
 
     return device
 
-@app.get("/api/sensors", response_model=SensorRead)
-def list_sensors(db: Session = Depends(get_db)):
-    # 1. Try reading the live temperature from Matter
-    try:
-        temp_c = read_temperature()
-    except Exception:
-        temp_c = None
+# @app.get("/api/sensors", response_model=SensorRead)
+# def list_sensors(db: Session = Depends(get_db)):
+#     # 1. Try reading the live temperature from Matter
+#     try:
+#         temp_c = read_temperature()
+#     except Exception:
+#         temp_c = None
 
-    # 2. Save new DB entry only when the temperature is valid
-    if temp_c is not None:
-        entry = SensorDB(sensor_type="temperature", value=temp_c)
-        db.add(entry)
-        db.commit()
+#     # 2. Save new DB entry only when the temperature is valid
+#     if temp_c is not None:
+#         entry = SensorDB(sensor_type="temperature", value=temp_c)
+#         db.add(entry)
+#         db.commit()
 
-    stmt = select(SensorDB).order_by(SensorDB.timestamp.desc()).limit(1)
-    row = db.execute(stmt).scalar_one_or_none()
+#     stmt = select(SensorDB).order_by(SensorDB.timestamp.desc()).limit(1)
+#     row = db.execute(stmt).scalar_one_or_none()
 
-    if not row:
-        raise HTTPException(status_code=404, detail="No sensor data")
+#     if not row:
+#         raise HTTPException(status_code=404, detail="No sensor data")
     
-    return row
+#     return row
 
-@app.get("/api/sensors", response_model=SensorRead)
-def get_latest_sensor(db: Session = Depends(get_db)):
-    stmt = select(SensorDB).order_by(SensorDB.timestamp.desc()).limit(1)
-    row = db.execute(stmt).scalar_one_or_none()
+# @app.get("/api/sensors", response_model=SensorRead)
+# def get_latest_sensor(db: Session = Depends(get_db)):
+#     stmt = select(SensorDB).order_by(SensorDB.timestamp.desc()).limit(1)
+#     row = db.execute(stmt).scalar_one_or_none()
 
-    if not row:
-        raise HTTPException(status_code=404, detail="No sensor data")
+#     if not row:
+#         raise HTTPException(status_code=404, detail="No sensor data")
     
-    return row
+#     return row
 
 
 @app.get("/api/sensors/{sensor_id}", response_model=SensorRead)
