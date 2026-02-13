@@ -38,7 +38,7 @@ async def _ws_call(command: str, args: Optional[dict[str, Any]] = None, timeout:
 
 def call(command: str, args: Optional[dict[str, Any]] = None, timeout: float = 60.0) -> dict[str, Any]:
     """
-    Sync wrapper so you can keep your current synchronous FastAPI endpoints.
+    Sync wrapper so I can keep my current synchronous FastAPI endpoints.
     """
     return asyncio.run(_ws_call(command, args=args, timeout=timeout))
 
@@ -59,50 +59,45 @@ def commission_with_code(code: str, node_id: Optional[int] = None) -> dict[str, 
 def get_nodes() -> dict[str, Any]:
     return call("get_nodes")
 
-
 def get_node(node_id: int) -> dict[str, Any]:
     return call("get_node", {"node_id": node_id})
 
-
 def _find_temp_measuredvalue(node_payload: Any) -> Optional[float]:
     """
-    Best-effort parse: looks for TemperatureMeasurement cluster (0x0402)
-    and MeasuredValue attribute (0x0000). Value is typically in 0.01°C units.
+    python-matter-server get_node returns:
+      result.attributes is a dict with keys like "1/1026/0" => 1940
+    where:
+      endpoint 1, cluster 1026 (TemperatureMeasurement), attribute 0 (MeasuredValue)
+      value is in 0.01°C units.
     """
-    # python-matter-server's node format can vary by version.
-    # We search deeply for a structure that includes these keys.
-    def walk(obj: Any):
-        if isinstance(obj, dict):
-            yield obj
-            for v in obj.values():
-                yield from walk(v)
-        elif isinstance(obj, list):
-            for item in obj:
-                yield from walk(item)
+    if not isinstance(node_payload, dict):
+        return None
 
-    # Prefer obvious places first
-    for d in walk(node_payload):
-        # common shapes include: {"cluster_id": 1026, "attribute_id": 0, "value": 2150}
-        if d.get("cluster_id") == CLUSTER_TEMPERATURE_MEASUREMENT and d.get("attribute_id") == ATTRIBUTE_MEASURED_VALUE:
-            v = d.get("value")
-            if isinstance(v, (int, float)):
-                return float(v) / 100.0
+    # unwrap common wrapper shapes
+    attrs = None
+    if "result" in node_payload and isinstance(node_payload["result"], dict):
+        attrs = node_payload["result"].get("attributes")
+    if attrs is None and "attributes" in node_payload:
+        attrs = node_payload.get("attributes")
 
-        # Another common shape: {"0402": {"0000": 2150}} or similar; handle hex-as-str too
-        # Be conservative but helpful:
-        if "attributes" in d and isinstance(d["attributes"], dict):
-            attrs = d["attributes"]
-            # sometimes cluster is a dict with id keys
-            # we'll just recurse; the above dict match usually catches it.
+    if not isinstance(attrs, dict):
+        return None
+
+    raw = attrs.get("1/1026/0")
+    if isinstance(raw, (int, float)):
+        return float(raw) / 100.0
 
     return None
 
-
 def read_temperature_c(node_id: int) -> Optional[float]:
-    """
-    Read temperature from the node by calling get_node and extracting MeasuredValue.
-    """
     resp = get_node(node_id)
-    # response commonly has {"result": {...}} or {"data": {...}}
-    payload = resp.get("result") or resp.get("data") or resp
-    return _find_temp_measuredvalue(payload)
+    return _find_temp_measuredvalue(resp)
+
+# def read_humidity_rh(node_id: int) -> Optional[float]:
+#     resp = get_node(node_id)
+#     attrs = resp.get("result", {}).get("attributes", {})
+#     raw = attrs.get("2/1029/0")
+#     if isinstance(raw, (int, float)):
+#         return float(raw) / 100.0
+#     return None
+

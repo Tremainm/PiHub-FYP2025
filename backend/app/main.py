@@ -53,6 +53,16 @@ def api_temp(node_id: int):
         raise HTTPException(status_code=404, detail="Temperature not found on node (or node not reachable).")
     return {"node_id": node_id, "temperature_c": temp}
 
+# @app.get("/api/matter/sensors/{node_id}")
+# def api_sensors(node_id: int):
+#     temp = read_temperature_c(node_id)
+#     hum = read_humidity_rh(node_id)
+
+#     if temp is None and hum is None:
+#         raise HTTPException(status_code=404, detail="No sensor values found (node not reachable or not interviewed).")
+
+#     return {"node_id": node_id, "temperature_c": temp, "humidity_rh": hum}
+
 @app.get("/api/users", response_model=list[UserRead])
 def list_users(db: Session = Depends(get_db)):
     stmt = select(UserDB).order_by(UserDB.id)
@@ -118,57 +128,4 @@ def toggle_device(device_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Device status not updated")
 
     return device
-
-# @app.get("/api/sensors", response_model=SensorRead)
-# def list_sensors(db: Session = Depends(get_db)):
-#     # 1. Try reading the live temperature from Matter
-#     try:
-#         temp_c = read_temperature()
-#     except Exception:
-#         temp_c = None
-
-#     # 2. Save new DB entry only when the temperature is valid
-#     if temp_c is not None:
-#         entry = SensorDB(sensor_type="temperature", value=temp_c)
-#         db.add(entry)
-#         db.commit()
-
-#     stmt = select(SensorDB).order_by(SensorDB.timestamp.desc()).limit(1)
-#     row = db.execute(stmt).scalar_one_or_none()
-
-#     if not row:
-#         raise HTTPException(status_code=404, detail="No sensor data")
-    
-#     return row
-
-# @app.get("/api/sensors", response_model=SensorRead)
-# def get_latest_sensor(db: Session = Depends(get_db)):
-#     stmt = select(SensorDB).order_by(SensorDB.timestamp.desc()).limit(1)
-#     row = db.execute(stmt).scalar_one_or_none()
-
-#     if not row:
-#         raise HTTPException(status_code=404, detail="No sensor data")
-    
-#     return row
-
-
-@app.get("/api/sensors/{sensor_id}", response_model=SensorRead)
-def get_sensor(sensor_id: int, db: Session = Depends(get_db)):
-    sensor = db.get(SensorDB, sensor_id)
-    if not sensor:
-        raise HTTPException(status_code=404, detail="Sensor not found")
-    return sensor
-
-@app.post("/api/sensors", response_model=SensorRead, status_code=status.HTTP_201_CREATED)
-def add_sensor_reading(payload: SensorCreate, db: Session = Depends(get_db)):
-    reading = SensorDB(**payload.model_dump())
-    db.add(reading)
-    try:
-        db.commit()
-        db.refresh(reading)
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="Device status not updated")
-
-    return reading
 
