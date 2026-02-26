@@ -1,10 +1,9 @@
-import React from "react";
-
-export default function SensorTile({ label, value }) {
+export default function SensorTile({ sensor }) {
   return (
     <div className="tile sensor-tile">
-      <h2>{label}</h2>
-      <p className="sensor-value">{value}</p>
+      <h3>{sensor.sensor_type.toUpperCase()}</h3>
+      <p className="sensor-value">{sensor.value.toFixed(2)} °C</p>
+      <p>{new Date(sensor.timestamp).toLocaleString()}</p>
     </div>
   );
 }

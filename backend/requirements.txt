@@ -5,3 +5,4 @@ pydantic[email]
 psycopg2-binary
 paho-mqtt
 python-dotenv
+websockets
