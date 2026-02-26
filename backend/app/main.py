@@ -1,37 +1,148 @@
-from fastapi import FastAPI, Depends, HTTPException, status, APIRouter
-from fastapi.middleware.cors import CORSMiddleware
-
+import asyncio
+import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from typing import Optional
 
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select, desc
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 
 from .database import engine, SessionLocal
-from .models import Base, UserDB, DeviceDB, SensorDB
-from .schemas import UserCreate, UserRead, DeviceCreate, DeviceRead, SensorCreate, SensorRead, WifiIn, CommissionIn
+from .models import Base, DeviceDB, SensorReadingDB
+from .schemas import (
+    DeviceCreate, DeviceRead,
+    SensorReadingRead,
+    WifiIn, CommissionIn,
+    BrightnessIn, ColourXYIn,
+)
+from .matter_ws import (
+    start_background_listener,
+    register_callback,
+    get_cached_temperature,
+    get_cached_humidity,
+    get_cached_sensor_data,
+    get_cached_light_state,
+    get_nodes,
+    remove_node,
+    set_wifi_credentials,
+    commission_with_code,
+    turn_on, turn_off, toggle,
+    set_brightness,
+    set_color_xy,
+)
 
-from .matter_ws import (set_wifi_credentials, commission_with_code,
-                        read_temperature_c, read_humidity_rh, get_nodes, 
-                        turn_on, turn_off, toggle, set_brightness, set_color_xy,
-                        start_background_listener, get_cached_temperature, 
-                        get_cached_humidity, get_cached_sensor_data
-                        )
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+# ── DB helpers ────────────────────────────────────────────────────────────────
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def _persist_sensor_reading(node_id: int, sensor_type: str, value: float) -> None:
+    """
+    Write one sensor reading to the DB using its own short-lived session.
+
+    This is a plain synchronous function intentionally — SQLAlchemy's
+    synchronous Session must not be used inside async code directly.
+    We call it via run_in_executor() from the async callback below so it
+    runs in a thread pool and never blocks the event loop.
+    """
+    db = SessionLocal()
+    try:
+        db.add(SensorReadingDB(
+            node_id=node_id,
+            sensor_type=sensor_type,
+            value=value,
+            timestamp=datetime.now(timezone.utc),
+        ))
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.error("Failed to persist sensor reading: %s", exc)
+    finally:
+        db.close()
+
+
+# ── Subscription callbacks ────────────────────────────────────────────────────
+
+def _register_sensor_callbacks(sensor_node_ids: list[int]) -> None:
+    """
+    Register async callbacks for temperature and humidity on each sensor node.
+
+    How it works:
+      1. The background listener receives an attribute_updated event.
+      2. It updates _attribute_cache (so /live endpoints stay fresh).
+      3. It fires any callbacks registered for that (node_id, attribute_path).
+      4. Our callback converts the raw Matter value to a human unit and
+         calls _persist_sensor_reading() in a thread pool so the DB write
+         never blocks the async event loop.
+
+    The attribute paths "1/1026/0" and "2/1029/0" are the exact strings
+    python-matter-server uses in attribute_updated events for this device.
+    If your sensor uses different endpoints, adjust these paths to match
+    what you see in the raw message logs.
+    """
+    async def on_temperature(node_id: int, path: str, raw_value) -> None:
+        if isinstance(raw_value, (int, float)):
+            value = float(raw_value) / 100.0  # Matter stores temp as hundredths of a degree
+            await asyncio.get_event_loop().run_in_executor(
+                None, _persist_sensor_reading, node_id, "temperature_c", value
+            )
+            logger.debug("Persisted temperature node=%s %.2f°C", node_id, value)
+
+    async def on_humidity(node_id: int, path: str, raw_value) -> None:
+        if isinstance(raw_value, (int, float)):
+            value = float(raw_value) / 100.0  # Matter stores humidity as hundredths of a percent
+            await asyncio.get_event_loop().run_in_executor(
+                None, _persist_sensor_reading, node_id, "humidity_rh", value
+            )
+            logger.debug("Persisted humidity node=%s %.2f%%", node_id, value)
+
+    for node_id in sensor_node_ids:
+        register_callback(node_id, "1/1026/0", on_temperature)
+        register_callback(node_id, "2/1029/0", on_humidity)
+        logger.info("Registered sensor DB callbacks for node %s", node_id)
+
+
+# ── Lifespan ──────────────────────────────────────────────────────────────────
+
+# Node IDs of your sensor devices. Extend this list as you commission more.
+SENSOR_NODE_IDS = [2]
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Code here runs once on startup before any requests are handled.
-    start_background_listener() launches a persistent asyncio task that
-    keeps a websocket open to matter-server and caches attribute updates.
-    """
+    Base.metadata.create_all(bind=engine)
     start_background_listener()
+    # Brief pause to let the listener connect and complete the start_listening
+    # handshake before we register callbacks. Without this the callbacks could
+    # be registered before _attribute_cache is populated from the initial dump,
+    # which is harmless but means the first few events might be missed.
+    await asyncio.sleep(2)
+    _register_sensor_callbacks(SENSOR_NODE_IDS)
     yield
-    # anything after yield runs on shutdown — nothing needed here
 
-app = FastAPI(lifespan=lifespan)
-Base.metadata.create_all(bind=engine)
-# router = APIRouter()
+
+# ── App setup ─────────────────────────────────────────────────────────────────
+
+app = FastAPI(
+    title="PiHub Matter API",
+    description=(
+        "Sensor readings come from a live Matter subscription cache and are "
+        "persisted to the DB automatically on every device-reported change. "
+        "LED state is read from the same live cache — no polling anywhere."
+    ),
+    lifespan=lifespan,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -41,213 +152,202 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
-@app.get("/health")
+# ── Health ────────────────────────────────────────────────────────────────────
+
+@app.get("/health", tags=["Health"])
 def get_health():
-    return { "status": "OK"}
+    return {"status": "OK"}
 
-#..... Set Wi-Fi credentials and commission (only if device has not previously been commissioned) .....
 
-@app.post("/api/matter/wifi")
-async def api_set_wifi(payload: WifiIn):
-    return await set_wifi_credentials(payload.ssid, payload.password)
+# ── Device registry ───────────────────────────────────────────────────────────
 
-@app.post("/api/matter/commission")
-async def api_commission(payload: CommissionIn):
-    # For Wi-Fi devices: call /api/matter/wifi first.
-    return await commission_with_code(payload.code, payload.node_id)
+@app.get("/api/devices", response_model=list[DeviceRead], tags=["Devices"])
+def list_devices(db: Session = Depends(get_db)):
+    """List all registered devices (node_id + human-readable name)."""
+    return list(db.execute(select(DeviceDB).order_by(DeviceDB.node_id)).scalars())
 
-# ..... Get nodes of devices that are in the fabric .....
 
-@app.get("/api/matter/nodes")
-async def api_nodes():
-    return await get_nodes()
-
-# ..... One-shot call to get temperature, humidity, and both together .....
-
-@app.get("/api/matter/temperature/{node_id}")
-async def api_temp(node_id: int):
-    temp = await read_temperature_c(node_id)
-    if temp is None:
-        raise HTTPException(status_code=404, detail="Temperature not found on node (or node not reachable).")
-    return {"node_id": node_id, "temperature_c": temp}
-
-@app.get("/api/matter/humidity/{node_id}")
-async def api_humidity(node_id: int):
-    hum = await read_humidity_rh(node_id)
-    if hum is None:
-        raise HTTPException(status_code=404, detail="Humidity not found.")
-    return {"node_id": node_id, "humidity_rh": hum}
-
-@app.get("/api/matter/sensors/{node_id}")
-async def api_sensors(node_id: int):
-    temp = await read_temperature_c(node_id)
-    hum = await read_humidity_rh(node_id)
-
-    if temp is None and hum is None:
-        raise HTTPException(status_code=404, detail="No sensor values found (node not reachable or not interviewed).")
-
-    return {"node_id": node_id, "temperature_c": temp, "humidity_rh": hum}
-
-# ..... Subscription methods .....
-
-@app.get("/api/matter/nodes/{node_id}/temperature/live")
-async def api_cached_temperature(node_id: int):
+@app.post("/api/devices", response_model=DeviceRead, status_code=201, tags=["Devices"])
+def register_device(payload: DeviceCreate, db: Session = Depends(get_db)):
     """
-    Returns the latest temperature received via subscription (no network call).
-    Much faster than /api/matter/temperature/{node_id} which does a fresh read.
-    Returns 404 if no value has been received yet — call /subscribe first.
+    Register a friendly name for a commissioned Matter node.
+    Call this after a successful commission so the UI shows names
+    instead of raw node IDs.
     """
-    temp = get_cached_temperature(node_id)
-    if temp is None:
-        raise HTTPException(
-            status_code=404,
-            detail="No temperature reading cached yet. Call /subscribe on this node first."
-        )
-    return {"node_id": node_id, "temperature_c": temp}
+    device = DeviceDB(node_id=payload.node_id, name=payload.name)
+    db.add(device)
+    try:
+        db.commit()
+        db.refresh(device)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=f"Node {payload.node_id} is already registered.")
+    return device
 
 
-@app.get("/api/matter/nodes/{node_id}/humidity/live")
-async def api_cached_humidity(node_id: int):
+@app.delete("/api/devices/{node_id}", status_code=204, tags=["Devices"])
+def unregister_device(node_id: int, db: Session = Depends(get_db)):
     """
-    Returns the latest humidity received via subscription (no network call).
-    Returns 404 if no value has been received yet.
+    Remove a device from the name registry.
+    Does not decommission it from the Matter fabric —
+    call DELETE /api/matter/nodes/{node_id} for that.
     """
-    hum = get_cached_humidity(node_id)
-    if hum is None:
-        raise HTTPException(
-            status_code=404,
-            detail="No humidity reading cached yet. Call /subscribe on this node first."
-        )
-    return {"node_id": node_id, "humidity_rh": hum}
+    device = db.execute(
+        select(DeviceDB).where(DeviceDB.node_id == node_id)
+    ).scalar_one_or_none()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found.")
+    db.delete(device)
+    db.commit()
 
 
-@app.get("/api/matter/nodes/{node_id}/sensors/live")
-async def api_cached_sensors(node_id: int):
+# ── Sensor history ────────────────────────────────────────────────────────────
+
+@app.get("/api/sensors/{node_id}/history", response_model=list[SensorReadingRead], tags=["Sensors"])
+def get_sensor_history(node_id: int, sensor_type: Optional[str] = None, limit: int = 100, db: Session = Depends(get_db)):
     """
-    Returns both temperature and humidity from cache in one call.
-    Either value may be None if not yet received.
+    Return historical sensor readings for a node, newest first.
+    Filter by sensor_type to get only temperature or only humidity.
+    Default limit is 100 rows — increase for charting longer time ranges.
     """
+    stmt = (
+        select(SensorReadingDB)
+        .where(SensorReadingDB.node_id == node_id)
+        .order_by(desc(SensorReadingDB.timestamp))
+        .limit(limit)
+    )
+    if sensor_type:
+        stmt = stmt.where(SensorReadingDB.sensor_type == sensor_type)
+    return list(db.execute(stmt).scalars())
+
+
+# ── Live sensor cache ─────────────────────────────────────────────────────────
+
+@app.get("/api/matter/nodes/{node_id}/sensors/live", tags=["Sensors"])
+def api_cached_sensors(node_id: int):
+    """Current temperature and humidity from the live subscription cache."""
     data = get_cached_sensor_data(node_id)
     if data["temperature_c"] is None and data["humidity_rh"] is None:
         raise HTTPException(
             status_code=404,
-            detail="No sensor data cached yet. Call /subscribe on this node first."
+            detail="No sensor data cached yet — check node_id or wait for first update.",
         )
     return {"node_id": node_id, **data}
 
-# ..... LED control methods
 
-@app.post("/api/matter/nodes/{node_id}/on")
+@app.get("/api/matter/nodes/{node_id}/temperature/live", tags=["Sensors"])
+def api_cached_temperature(node_id: int):
+    """Latest temperature (°C) from the subscription cache."""
+    temp = get_cached_temperature(node_id)
+    if temp is None:
+        raise HTTPException(status_code=404, detail="No temperature reading cached yet.")
+    return {"node_id": node_id, "temperature_c": temp}
+
+
+@app.get("/api/matter/nodes/{node_id}/humidity/live", tags=["Sensors"])
+def api_cached_humidity(node_id: int):
+    """Latest relative humidity (%RH) from the subscription cache."""
+    hum = get_cached_humidity(node_id)
+    if hum is None:
+        raise HTTPException(status_code=404, detail="No humidity reading cached yet.")
+    return {"node_id": node_id, "humidity_rh": hum}
+
+
+# ── Live light state ──────────────────────────────────────────────────────────
+
+@app.get("/api/matter/nodes/{node_id}/state/live", tags=["Light state"])
+def api_cached_light_state(node_id: int):
+    """
+    Current light state from the subscription cache: on/off, brightness, colour.
+    Updates automatically after any command — the bulb reports its new state
+    back through the subscription stream with no explicit read needed.
+    """
+    state = get_cached_light_state(node_id)
+    if all(v is None for v in state.values()):
+        raise HTTPException(
+            status_code=404,
+            detail="No light state cached yet — check node_id or wait for first update.",
+        )
+    return {"node_id": node_id, **state}
+
+
+# ── Node management ───────────────────────────────────────────────────────────
+
+@app.get("/api/matter/nodes", tags=["Nodes"])
+async def api_nodes():
+    """List all nodes in the Matter fabric."""
+    return await get_nodes()
+
+
+@app.delete("/api/matter/nodes/{node_id}", tags=["Nodes"])
+async def api_remove_node(node_id: int):
+    """
+    Decommission a node from the Matter fabric.
+    The device needs a factory reset before it can be re-commissioned.
+    Also call DELETE /api/devices/{node_id} to remove it from the name registry.
+    """
+    return await remove_node(node_id)
+
+
+# ── Commissioning ─────────────────────────────────────────────────────────────
+
+@app.post("/api/matter/wifi", tags=["Commissioning"])
+async def api_set_wifi(payload: WifiIn):
+    """Pre-load Wi-Fi credentials. Call before /api/matter/commission for Wi-Fi devices."""
+    return await set_wifi_credentials(payload.ssid, payload.password)
+
+
+@app.post("/api/matter/commission", tags=["Commissioning"])
+async def api_commission(payload: CommissionIn):
+    """
+    Commission a new Matter device. For Wi-Fi devices call /api/matter/wifi first.
+    After success, call POST /api/devices to give the new node a friendly name.
+    """
+    return await commission_with_code(
+        payload.code,
+        node_id=payload.node_id,
+        network_only=payload.network_only,
+    )
+
+
+# ── LED control ───────────────────────────────────────────────────────────────
+
+@app.post("/api/matter/nodes/{node_id}/on", tags=["LED control"])
 async def api_light_on(node_id: int):
-    """
-    Sends the OnOff:On command to endpoint 1 of the given node.
-    The light example uses endpoint 1 for its OnOff cluster.
-    """
+    """Turn a light on (OnOff:On)."""
     return await turn_on(node_id)
 
 
-@app.post("/api/matter/nodes/{node_id}/off")
+@app.post("/api/matter/nodes/{node_id}/off", tags=["LED control"])
 async def api_light_off(node_id: int):
-    """
-    Sends the OnOff:Off command to endpoint 1 of the given node.
-    """
+    """Turn a light off (OnOff:Off)."""
     return await turn_off(node_id)
 
 
-@app.post("/api/matter/nodes/{node_id}/toggle")
+@app.post("/api/matter/nodes/{node_id}/toggle", tags=["LED control"])
 async def api_light_toggle(node_id: int):
-    """
-    Sends the OnOff:Toggle command — flips current state without needing to know it.
-    Useful for a single button press.
-    """
+    """Toggle on/off state (OnOff:Toggle)."""
     return await toggle(node_id)
 
-@app.post("/api/matter/nodes/{node_id}/brightness/{level}")
-async def api_brightness(node_id: int, level: int):
+
+@app.post("/api/matter/nodes/{node_id}/brightness", tags=["LED control"])
+async def api_brightness(node_id: int, payload: BrightnessIn):
     """
-    Set brightness. level is 0-254.
-    Example: POST /api/matter/nodes/3/brightness/128  sets to 50% brightness.
+    Set brightness (LevelControl:MoveToLevel).
+    level: 0-254. transition_time: tenths of a second (0 = immediate).
+    Use turn_off() rather than level=0 for a clean off.
     """
-    return await set_brightness(node_id, level)
+    return await set_brightness(node_id, payload.level, payload.transition_time)
 
-@app.post("/api/matter/nodes/{node_id}/color/xy")
-async def api_color_xy(node_id: int, x: float, y: float):
+
+@app.post("/api/matter/nodes/{node_id}/color/xy", tags=["LED control"])
+async def api_color_xy(node_id: int, payload: ColourXYIn):
     """
-    Set colour by CIE XY coordinates (both 0.0-1.0).
-    Example: POST /api/matter/nodes/3/color/xy?x=0.700&y=0.299  sets red.
+    Set colour by CIE XY (ColorControl:MoveToColor).
+    x, y: floats 0.0-1.0. transition_time: tenths of a second.
+
+    Presets — Red: x=0.700 y=0.299 | Green: x=0.172 y=0.747
+              Blue: x=0.136 y=0.040 | Warm white: x=0.450 y=0.408
     """
-    return await set_color_xy(node_id, x, y)
-
-# @app.get("/api/users", response_model=list[UserRead])
-# def list_users(db: Session = Depends(get_db)):
-#     stmt = select(UserDB).order_by(UserDB.id)
-#     return list(db.execute(stmt).scalars())
-
-# @app.get("/api/users/{user_id}", response_model=UserRead)
-# def get_user(user_id: int, db: Session = Depends(get_db)):
-#     user = db.get(UserDB, user_id)
-#     if not user:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     return user
-
-# @app.post("/api/users", response_model=UserRead, status_code=status.HTTP_201_CREATED)
-# def add_user(payload: UserCreate, db: Session = Depends(get_db)):
-#     user = UserDB(**payload.model_dump())
-#     db.add(user)
-#     try:
-#         db.commit()
-#         db.refresh(user)
-#     except IntegrityError:
-#         db.rollback()
-#         raise HTTPException(status_code=409, detail="User already exists")
-#     return user
-
-# @app.get("/api/devices", response_model=list[DeviceRead])
-# def list_devices(db: Session = Depends(get_db)):
-#     stmt = select(DeviceDB).order_by(DeviceDB.id)
-#     return list(db.execute(stmt).scalars())
-
-# @app.get("/api/devices/{device_id}", response_model=DeviceRead)
-# def get_device(device_id: int, db: Session = Depends(get_db)):
-#     device = db.get(DeviceDB, device_id)
-#     if not device:
-#         raise HTTPException(status_code=404, detail="Device not found")
-#     return device
-
-# @app.post("/api/devices", response_model=DeviceRead, status_code=status.HTTP_201_CREATED)
-# def add_device(payload: DeviceCreate, db: Session = Depends(get_db)):
-#     device = DeviceDB(**payload.model_dump())
-#     db.add(device)
-#     try:
-#         db.commit()
-#         db.refresh(device)
-#     except IntegrityError:
-#         db.rollback()
-#         raise HTTPException(status_code=409, detail="Device already exists")
-#     return device
-
-# @app.put("/api/devices/{device_id}/toggle", response_model=DeviceRead)
-# def toggle_device(device_id: int, db: Session = Depends(get_db)):
-#     device = db.get(DeviceDB, device_id)
-#     if not device:
-#         raise HTTPException(status_code=404, detail="Device not found")
-
-#     device.status = "OFF" if device.status.upper() == "ON" else "ON"
-
-#     db.add(device)
-#     try:
-#         db.commit()
-#         db.refresh(device)
-#     except IntegrityError:
-#         db.rollback()
-#         raise HTTPException(status_code=409, detail="Device status not updated")
-
-#     return device
-
+    return await set_color_xy(node_id, payload.x, payload.y, payload.transition_time)

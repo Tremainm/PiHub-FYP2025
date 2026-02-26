@@ -1,42 +1,35 @@
-from typing import Annotated
-from pydantic import BaseModel, EmailStr, Field, StringConstraints, ConfigDict
+from typing import Annotated, Optional
+from pydantic import BaseModel, StringConstraints, ConfigDict
 from datetime import datetime
 
-UserNameStr = Annotated[str, StringConstraints(min_length=2, max_length=50)]
-DeviceNameStr = Annotated[str, StringConstraints(min_length=2, max_length=30)]
-SensorTypeStr = Annotated[str, StringConstraints(min_length=2, max_length=20)]
+DeviceNameStr = Annotated[str, StringConstraints(min_length=2, max_length=50)]
 
-class UserCreate(BaseModel):
-    name: UserNameStr
-    email: EmailStr
 
-class UserRead(BaseModel):
-    id: int
-    name: UserNameStr
-    email: EmailStr
-    model_config = ConfigDict(from_attributes=True)
+# ── Device registry ───────────────────────────────────────────────────────────
 
 class DeviceCreate(BaseModel):
+    node_id: int
     name: DeviceNameStr
-    owner_id: int
 
 class DeviceRead(BaseModel):
     id: int
+    node_id: int
     name: str
-    status: str
-    owner_id: int
     model_config = ConfigDict(from_attributes=True)
 
-class SensorCreate(BaseModel):
-    sensor_type: SensorTypeStr
-    value: float
 
-class SensorRead(BaseModel):
+# ── Sensor readings ───────────────────────────────────────────────────────────
+
+class SensorReadingRead(BaseModel):
     id: int
-    sensor_type: SensorTypeStr
+    node_id: int
+    sensor_type: str   # "temperature_c" | "humidity_rh"
     value: float
     timestamp: datetime
     model_config = ConfigDict(from_attributes=True)
+
+
+# ── Matter command payloads ───────────────────────────────────────────────────
 
 class WifiIn(BaseModel):
     ssid: str
@@ -44,4 +37,14 @@ class WifiIn(BaseModel):
 
 class CommissionIn(BaseModel):
     code: str
-    node_id: int | None = None
+    node_id: Optional[int] = None
+    network_only: bool = False
+
+class BrightnessIn(BaseModel):
+    level: int            # 0-254
+    transition_time: int = 0  # tenths of a second
+
+class ColourXYIn(BaseModel):
+    x: float              # CIE x, 0.0-1.0
+    y: float              # CIE y, 0.0-1.0
+    transition_time: int = 0
