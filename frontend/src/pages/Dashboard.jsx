@@ -2,25 +2,19 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { getDevices } from "../api/devices";
 import { getSensorLive } from "../api/sensors";
-import { getLightState } from "../api/matter";
 import SensorTile from "../components/SensorTile";
 import LedTile from "../components/LedTile";
 
-// Node IDs that are sensors vs LEDs. In a fuller implementation you would store
-// a 'type' field in DeviceDB and derive this automatically. For now, keep it
-// in sync with your SENSOR_NODE_IDS in main.py.
 const SENSOR_NODE_IDS = [2];
 const LED_NODE_IDS    = [3];
-
-const POLL_INTERVAL = 4000; // ms — how often to refresh sensor cache readings
+const POLL_INTERVAL   = 4000;
 
 export default function Dashboard() {
   const navigate = useNavigate();
 
-  const [devices, setDevices]       = useState([]);
-  const [sensorData, setSensorData] = useState({});   // { [node_id]: { temperature_c, humidity_rh } }
-  const [ledData, setLedData]       = useState({});   // { [node_id]: { on, brightness, color_xy } }
-  const [loading, setLoading]       = useState(true);
+  const [devices,    setDevices]    = useState([]);
+  const [sensorData, setSensorData] = useState({});
+  const [loading,    setLoading]    = useState(true);
 
   // Load device name registry once on mount
   useEffect(() => {
@@ -30,33 +24,20 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Poll sensor live cache
+  // Poll sensor live cache — LED state is now handled inside useLedState
   const refreshSensors = useCallback(() => {
     SENSOR_NODE_IDS.forEach((id) => {
       getSensorLive(id)
         .then((data) => setSensorData((prev) => ({ ...prev, [id]: data })))
-        .catch(() => {}); // silently ignore if node not yet ready
-    });
-  }, []);
-
-  // Poll LED state cache
-  const refreshLeds = useCallback(() => {
-    LED_NODE_IDS.forEach((id) => {
-      getLightState(id)
-        .then((data) => setLedData((prev) => ({ ...prev, [id]: data })))
         .catch(() => {});
     });
   }, []);
 
   useEffect(() => {
     refreshSensors();
-    refreshLeds();
-    const interval = setInterval(() => {
-      refreshSensors();
-      refreshLeds();
-    }, POLL_INTERVAL);
+    const interval = setInterval(refreshSensors, POLL_INTERVAL);
     return () => clearInterval(interval);
-  }, [refreshSensors, refreshLeds]);
+  }, [refreshSensors]);
 
   const sensorDevices = devices.filter((d) => SENSOR_NODE_IDS.includes(d.node_id));
   const ledDevices    = devices.filter((d) => LED_NODE_IDS.includes(d.node_id));
@@ -75,7 +56,9 @@ export default function Dashboard() {
       {devices.length === 0 && (
         <div className="empty-state">
           <div className="empty-state-icon">📡</div>
-          <div className="empty-state-text">No devices registered yet. Go to Settings to commission one.</div>
+          <div className="empty-state-text">
+            No devices registered yet. Go to Settings to commission one.
+          </div>
         </div>
       )}
 
@@ -93,8 +76,6 @@ export default function Dashboard() {
           <LedTile
             key={device.node_id}
             device={device}
-            state={ledData[device.node_id] ?? null}
-            onToggle={refreshLeds}
             onClick={() => navigate(`/led/${device.node_id}`)}
           />
         ))}
