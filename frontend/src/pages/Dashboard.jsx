@@ -6,7 +6,7 @@ import SensorTile from "../components/SensorTile";
 import LedTile from "../components/LedTile";
 
 const SENSOR_NODE_IDS = [2];
-const LED_NODE_IDS    = [3];
+const LED_NODE_IDS    = [9];
 const POLL_INTERVAL   = 4000;
 
 export default function Dashboard() {
