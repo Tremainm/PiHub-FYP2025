@@ -1,9 +1,9 @@
 /**
- * Toggle — a large touch-friendly on/off switch.
+ * Toggle: a large touch-friendly on/off switch.
  *
  * Props:
  *   on       {boolean}  current state
- *   onChange {function} called with no args when tapped — caller decides what to do
+ *   onChange {function} called with no args when tapped, caller decides what to do
  *   disabled {boolean}  greys out and prevents interaction
  */
 export default function Toggle({ on, onChange, disabled = false }) {

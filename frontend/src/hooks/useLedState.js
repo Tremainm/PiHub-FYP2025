@@ -10,32 +10,32 @@ const POLL_INTERVAL = 4000;
 const DEFAULT_COLOR = "#ffaa44";
 
 export function useLedState(nodeId) {
-  const [isOn,       setIsOn]     = useState(false);
-  const [brightness, setBri]      = useState(128);
-  const [colorHex,   setColorHex] = useState(DEFAULT_COLOR);
+  const [isOn, setIsOn] = useState(false);
+  const [brightness, setBri] = useState(128);
+  const [colorHex, setColorHex] = useState(DEFAULT_COLOR);
 
-  const isOnRef       = useRef(false);
+  const isOnRef = useRef(false);
   const brightnessRef = useRef(128);
-  const colorHexRef   = useRef(DEFAULT_COLOR);
-  const pendingRef    = useRef(false);
+  const colorHexRef = useRef(DEFAULT_COLOR);
+  const pendingRef = useRef(false);
 
   // Once the user explicitly picks a colour, the poll must never overwrite it.
-  // The xyToHex round-trip is lossy — every poll would drift the colour slightly,
+  // The xyToHex round-trip is lossy, every poll would drift the colour slightly,
   // and changeBrightness re-sends whatever is in colorHexRef, so any drift
   // compounds into a completely wrong colour over time.
   const userSetColorRef = useRef(false);
 
   const brightnessTimer = useRef(null);
-  const colorTimer      = useRef(null);
+  const colorTimer = useRef(null);
 
-  function setIsOnBoth(val)     { setIsOn(val);    isOnRef.current       = val; }
-  function setBriBoth(val)      { setBri(val);      brightnessRef.current = val; }
-  function setColorHexBoth(val) { setColorHex(val); colorHexRef.current   = val; }
+  function setIsOnBoth(val) { setIsOn(val); isOnRef.current = val; }
+  function setBriBoth(val) { setBri(val); brightnessRef.current = val; }
+  function setColorHexBoth(val) { setColorHex(val); colorHexRef.current = val; }
 
-  // ── Sync from Matter cache ────────────────────────────────────────────────
+  // -- Sync from Matter cache ---------------------------------
   // Polls on mount and every POLL_INTERVAL ms to stay in sync with external
   // changes (e.g. physical switch). Colour is only synced on the very first
-  // poll — after the user sets a colour it becomes the local source of truth.
+  // poll, after the user sets a colour it becomes the local source of truth.
   const syncFromCache = useCallback(() => {
     if (pendingRef.current) return;
     getLightState(nodeId)
@@ -56,7 +56,7 @@ export function useLedState(nodeId) {
     return () => clearInterval(interval);
   }, [syncFromCache]);
 
-  // ── Commands ─────────────────────────────────────────────────────────────
+  // -- Commands ----------------------------------------------
 
   async function toggle() {
     const next = !isOnRef.current;
@@ -80,7 +80,7 @@ export function useLedState(nodeId) {
       try {
         // Send colour first so current_x/current_y are set on the device
         // before MoveToLevelWithOnOff triggers the hardware update.
-        // This eliminates the white flash — the firmware re-applies colour
+        // This eliminates the white flash, the firmware re-applies colour
         // immediately after brightness using the already-updated globals.
         if (userSetColorRef.current) {
           const { x, y } = hexToXY(colorHexRef.current);

@@ -12,11 +12,11 @@ export default function Navbar() {
             <MdDashboard size={20} /> Dashboard
           </NavLink>
         </li>
-        <li>
+        {/* <li>
           <NavLink to="/sensors" className={({ isActive }) => isActive ? "active" : ""}>
             <MdShowChart size={20} /> Sensors
           </NavLink>
-        </li>
+        </li> */}
         <li>
           <NavLink to="/settings" className={({ isActive }) => isActive ? "active" : ""}>
             <MdSettings size={20} /> Settings

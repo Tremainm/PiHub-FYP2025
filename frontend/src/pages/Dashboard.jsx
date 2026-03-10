@@ -1,20 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { getDevices } from "../api/devices";
-import { getSensorLive } from "../api/sensors";
+import { getSensorLive, LED_NODE_IDS } from "../api/sensors";
+import { SENSOR_NODE_IDS } from "../config/nodeId.config"
 import SensorTile from "../components/SensorTile";
 import LedTile from "../components/LedTile";
-
-const SENSOR_NODE_IDS = [2];
-const LED_NODE_IDS    = [9];
-const POLL_INTERVAL   = 4000;
 
 export default function Dashboard() {
   const navigate = useNavigate();
 
-  const [devices,    setDevices]    = useState([]);
+  const POLL_INTERVAL = 4000;
+
+  const [devices, setDevices] = useState([]);
   const [sensorData, setSensorData] = useState({});
-  const [loading,    setLoading]    = useState(true);
+  const [loading, setLoading] = useState(true);
 
   // Load device name registry once on mount
   useEffect(() => {
@@ -24,7 +23,7 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Poll sensor live cache — LED state is now handled inside useLedState
+  // Poll sensor live cache: LED state is now handled inside useLedState
   const refreshSensors = useCallback(() => {
     SENSOR_NODE_IDS.forEach((id) => {
       getSensorLive(id)
@@ -40,7 +39,7 @@ export default function Dashboard() {
   }, [refreshSensors]);
 
   const sensorDevices = devices.filter((d) => SENSOR_NODE_IDS.includes(d.node_id));
-  const ledDevices    = devices.filter((d) => LED_NODE_IDS.includes(d.node_id));
+  const ledDevices = devices.filter((d) => LED_NODE_IDS.includes(d.node_id));
 
   if (loading) return <div className="spinner" />;
 

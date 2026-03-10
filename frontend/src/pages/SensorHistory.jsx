@@ -174,7 +174,7 @@ export default function SensorHistory() {
 
       <div className="page-header">
         <h1 className="page-title">Sensor History</h1>
-        <p className="page-subtitle">Node {nodeId} — readings from the database</p>
+        <p className="page-subtitle">Node {nodeId}: readings from the database</p>
       </div>
 
       {/* Controls — only affect the NEXT chart loaded, not existing ones */}

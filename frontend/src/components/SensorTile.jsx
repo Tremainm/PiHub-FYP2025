@@ -1,7 +1,7 @@
 import { MdSensors } from "react-icons/md";
 
 /**
- * SensorTile — shows live temperature and humidity for a sensor node.
+ * SensorTile: shows live temperature and humidity for a sensor node.
  *
  * Props:
  *   device  { node_id, name }   from DeviceDB

@@ -56,6 +56,14 @@
   --transition:      0.18s ease;
   --transition-slow: 0.32s ease;
 
+  /* UI chrome — fixed blue for buttons, focus rings, and checkboxes.
+     Decoupled from --sensor/--led so tile colour changes never affect
+     action buttons.                                                      */
+  --ui-primary:       #2563eb;
+  --ui-primary-hover: #1d4ed8;
+  --ui-primary-glow:  rgba(37,99,235,0.25);
+  --ui-primary-ring:  rgba(37,99,235,0.30);
+
   /* Touch */
   --touch:           48px;
   --touch-sm:        40px;
@@ -64,6 +72,90 @@
   --font:            'DM Sans', sans-serif;
   --font-mono:       'DM Mono', monospace;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DARK MODE TOKENS
+   Applied when ThemeContext sets data-theme="dark" on <html>.
+   Only surface, border, shadow, and text tokens need overriding — accent
+   colour tokens (--sensor-*, --led-*) are handled dynamically by the
+   ThemeContext accent injection, which respects the current isDark state.
+   ═══════════════════════════════════════════════════════════════════════════ */
+[data-theme="dark"] {
+  /* Backgrounds — deep dark-blue-grey hierarchy */
+  --bg:              #0d1117;
+  --surface:         #161b22;
+  --surface-2:       #1c2230;
+  --surface-3:       #242d3d;
+
+  /* Borders */
+  --border:          #2a3347;
+  --border-strong:   #3a4a65;
+
+  /* Shadows — stronger to stay visible on dark surfaces */
+  --shadow-sm:       0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25);
+  --shadow:          0 4px 16px rgba(0,0,0,0.40), 0 2px 4px rgba(0,0,0,0.25);
+  --shadow-lg:       0 12px 40px rgba(0,0,0,0.50), 0 4px 12px rgba(0,0,0,0.30);
+
+  /* Typography */
+  --text:            #e6edf3;
+  --text-secondary:  #8b949e;
+  --text-muted:      #6e7681;
+  --text-faint:      #3d444d;
+
+  /* Semantic — keep vivid on dark */
+  --green:           #3fb950;
+  --green-pale:      rgba(63,185,80,0.10);
+  --red:             #f85149;
+  --red-pale:        rgba(248,81,73,0.10);
+  --amber:           #d29922;
+  --amber-pale:      rgba(210,153,34,0.10);
+
+  /* Navbar stays navy — it already looks good on dark */
+  --navy:            #0d1a2e;
+  --navy-light:      #1a2f57;
+}
+
+/* Tile gradients in dark mode — use surface + subtle tint instead of pale wash */
+[data-theme="dark"] .tile.sensor-tile {
+  background: linear-gradient(160deg, var(--surface) 60%, var(--sensor-pale) 100%);
+}
+
+[data-theme="dark"] .tile.led-tile {
+  background: linear-gradient(160deg, var(--surface) 60%, var(--led-pale) 100%);
+}
+
+/* Status messages — darker tinted backgrounds in dark mode */
+[data-theme="dark"] .status-msg.success {
+  background: var(--green-pale);
+  border-color: rgba(63,185,80,0.25);
+  color: #3fb950;
+}
+
+[data-theme="dark"] .status-msg.error {
+  background: var(--red-pale);
+  border-color: rgba(248,81,73,0.25);
+  color: #f85149;
+}
+
+[data-theme="dark"] .status-msg.info {
+  background: var(--sensor-pale);
+  border-color: var(--sensor-border);
+  color: var(--sensor-light);
+}
+
+[data-theme="dark"] .status-msg.warning {
+  background: var(--amber-pale);
+  border-color: rgba(210,153,34,0.25);
+  color: var(--amber);
+}
+
+/* Danger button on dark — swap pale bg for tinted dark surface */
+[data-theme="dark"] .btn-danger {
+  background: rgba(248,81,73,0.10);
+  color: #f85149;
+  border-color: rgba(248,81,73,0.25);
+}
+
 
 /* ═══════════════════════════════════════════════════════════════════════════
    RESET & BASE
@@ -184,11 +276,6 @@ button, input, select, textarea {
   transition: background var(--transition), color var(--transition);
 }
 
-.nav-links a:hover {
-  background: rgba(255,255,255,0.08);
-  color: var(--navy-text);
-}
-
 .nav-links a.active {
   background: rgba(255,255,255,0.13);
   color: var(--navy-text);
@@ -265,11 +352,6 @@ button, input, select, textarea {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.tile:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow);
-}
-
 .tile:active {
   transform: scale(0.97);
   box-shadow: var(--shadow-sm);
@@ -281,22 +363,10 @@ button, input, select, textarea {
   background: linear-gradient(160deg, #ffffff 60%, var(--sensor-pale) 100%);
 }
 
-.tile.sensor-tile:hover {
-  border-color: var(--sensor-border);
-  border-top-color: var(--sensor);
-  box-shadow: var(--shadow), 0 0 0 1px var(--sensor-border);
-}
-
 /* ── LED tile ────────────────────────────────────────────────────────────── */
 .tile.led-tile {
   border-top: 3px solid var(--led);
   background: linear-gradient(160deg, #ffffff 60%, var(--led-pale) 100%);
-}
-
-.tile.led-tile:hover {
-  border-color: var(--led-border);
-  border-top-color: var(--led);
-  box-shadow: var(--shadow), 0 0 0 1px var(--led-border);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -497,14 +567,11 @@ button, input, select, textarea {
   box-shadow: var(--shadow-sm);
 }
 
-.back-btn:hover {
+.back-btn:active {
+  transform: scale(0.97);
   background: var(--surface-2);
   color: var(--text);
   border-color: var(--border-strong);
-}
-
-.back-btn:active {
-  transform: scale(0.97);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -632,11 +699,6 @@ button, input, select, textarea {
   flex-shrink: 0;
 }
 
-.color-input:hover {
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow);
-}
-
 .color-input::-webkit-color-swatch-wrapper { padding: 0; }
 .color-input::-webkit-color-swatch         { border: none; border-radius: 50%; }
 .color-input::-moz-color-swatch            { border: none; border-radius: 50%; }
@@ -656,11 +718,6 @@ button, input, select, textarea {
   transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
   flex-shrink: 0;
   box-shadow: var(--shadow-sm);
-}
-
-.color-preset:hover {
-  transform: scale(1.1);
-  box-shadow: var(--shadow);
 }
 
 .color-preset:active {
@@ -721,8 +778,8 @@ button, input, select, textarea {
 
 .form-select:focus,
 .form-input:focus {
-  border-color: var(--sensor);
-  box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+  border-color: var(--ui-primary);
+  box-shadow: 0 0 0 3px var(--ui-primary-ring);
 }
 
 .form-input::placeholder {
@@ -789,10 +846,6 @@ button, input, select, textarea {
   transition: border-color var(--transition);
 }
 
-.node-row:hover {
-  border-color: var(--border-strong);
-}
-
 .node-info { flex: 1; min-width: 0; }
 
 .node-name {
@@ -840,18 +893,19 @@ button, input, select, textarea {
 }
 
 .btn:focus-visible {
-  box-shadow: 0 0 0 3px rgba(37,99,235,0.3);
+  box-shadow: 0 0 0 3px var(--ui-primary-ring);
 }
 
 /* Variants */
 .btn-primary {
-  background: var(--sensor);
+  background: var(--ui-primary);
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(37,99,235,0.25);
+  box-shadow: 0 2px 8px var(--ui-primary-glow);
 }
-.btn-primary:hover {
-  background: #1d4ed8;
-  box-shadow: 0 4px 14px rgba(37,99,235,0.35);
+.btn-primary:active {
+  background: var(--ui-primary-hover);
+  box-shadow: 0 2px 6px var(--ui-primary-ring);
+  transform: scale(0.96);
 }
 
 .btn-orange {
@@ -859,9 +913,9 @@ button, input, select, textarea {
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(234,88,12,0.25);
 }
-.btn-orange:hover {
+.btn-orange:active {
   background: #c2410c;
-  box-shadow: 0 4px 14px rgba(234,88,12,0.35);
+  transform: scale(0.96);
 }
 
 .btn-danger {
@@ -869,9 +923,10 @@ button, input, select, textarea {
   color: var(--red);
   border: 1px solid #fecaca;
 }
-.btn-danger:hover {
+.btn-danger:active {
   background: var(--red-pale);
   border-color: #f87171;
+  transform: scale(0.96);
 }
 
 .btn-ghost {
@@ -879,17 +934,19 @@ button, input, select, textarea {
   color: var(--text-secondary);
   border: 1px solid var(--border);
 }
-.btn-ghost:hover {
+.btn-ghost:active {
   background: var(--surface-3);
   color: var(--text);
+  transform: scale(0.96);
 }
 
 .btn-navy {
   background: var(--navy);
   color: #ffffff;
 }
-.btn-navy:hover {
+.btn-navy:active {
   background: var(--navy-light);
+  transform: scale(0.96);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -971,7 +1028,7 @@ button, input, select, textarea {
   width: 32px;
   height: 32px;
   border: 3px solid var(--border);
-  border-top-color: var(--sensor);
+  border-top-color: var(--ui-primary);
   border-radius: 50%;
   animation: spin 0.65s linear infinite;
   margin: 60px auto;
@@ -1004,10 +1061,194 @@ code {
 input[type="checkbox"] {
   width: 20px;
   height: 20px;
-  accent-color: var(--sensor);
+  accent-color: var(--ui-primary);
   cursor: pointer;
   border-radius: 4px;
   flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   APPEARANCE SECTION (Settings page)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Row layout: label/description on the left, control on the right */
+.appearance-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.appearance-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.appearance-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+
+.appearance-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ── Theme toggle button ──────────────────────────────────────────────────── */
+/*
+ * Custom pill-style dark/light toggle. Wider than a normal button to
+ * accommodate the label and the animated track indicator.
+ * The .theme-toggle-track is a small pill inside the button; its
+ * .theme-toggle-thumb slides left/right via CSS transition.
+ */
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--touch);
+  padding: 0 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition:
+    background    var(--transition),
+    border-color  var(--transition),
+    color         var(--transition),
+    box-shadow    var(--transition);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.theme-toggle-btn:active {
+  transform: scale(0.97);
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+/* Icon wrapper */
+.theme-toggle-icon {
+  display: flex;
+  align-items: center;
+  color: var(--ui-primary);
+}
+
+/* Text label */
+.theme-toggle-label {
+  min-width: 36px;
+}
+
+/* The mini on/off track inside the button */
+.theme-toggle-track {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+  flex-shrink: 0;
+  transition: background var(--transition);
+}
+
+.theme-toggle-btn.dark .theme-toggle-track {
+  background: var(--sensor);
+  border-color: var(--sensor);
+}
+
+/* Sliding thumb inside the track */
+.theme-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: transform var(--transition);
+}
+
+.theme-toggle-btn.dark .theme-toggle-thumb {
+  transform: translateX(16px);
+}
+
+/* ── Accent colour pickers ────────────────────────────────────────────────── */
+
+/* Two-column grid for sensor + LED pickers side-by-side */
+.appearance-colors-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+@media (max-width: 480px) {
+  .appearance-colors-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.appearance-color-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.appearance-color-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* Swatch + hex value side-by-side */
+.appearance-color-swatch-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/*
+ * The native <input type="color"> restyled as a large circular swatch.
+ * On Chromium (kiosk target) it opens a full-page colour picker on click.
+ * Width/height are set larger than the colour input's swatch area to give
+ * a generous touch target.
+ */
+.appearance-color-input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border-strong);
+  padding: 2px;
+  cursor: pointer;
+  background: none;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition), box-shadow var(--transition);
+  flex-shrink: 0;
+}
+
+.appearance-color-input::-webkit-color-swatch-wrapper { padding: 0; }
+.appearance-color-input::-webkit-color-swatch         { border: none; border-radius: 4px; }
+.appearance-color-input::-moz-color-swatch            { border: none; border-radius: 4px; }
+
+/* Hex value display next to the swatch */
+.appearance-color-hex {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1107,7 +1348,7 @@ input[type="checkbox"] {
   color: var(--text-muted);
 }
 
-.chart-card-remove:hover {
+.chart-card-remove:active {
   color: var(--red);
   border-color: #fecaca;
   background: var(--red-pale);

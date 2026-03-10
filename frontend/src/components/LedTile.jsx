@@ -3,8 +3,8 @@ import Toggle from "./Toggle";
 import { useLedState } from "../hooks/useLedState";
 
 /**
- * LedTile — dashboard tile for an LED bulb.
- * State is owned by useLedState — no local state here.
+ * LedTile: dashboard tile for an LED bulb.
+ * State is owned by useLedState, no local state here.
  */
 export default function LedTile({ device, onClick }) {
   const { isOn, toggle } = useLedState(device.node_id);

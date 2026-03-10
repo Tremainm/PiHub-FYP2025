@@ -8,21 +8,21 @@ import { useLedState } from "../hooks/useLedState";
 const PRESETS = [
   { label: "Warm White", hex: "#ffaa44" },
   { label: "Cool White", hex: "#e8f0ff" },
-  { label: "Red",        hex: "#ff2200" },
-  { label: "Green",      hex: "#00cc44" },
-  { label: "Blue",       hex: "#0055ff" },
-  { label: "Purple",     hex: "#8833ff" },
+  { label: "Red", hex: "#ff2200" },
+  { label: "Green", hex: "#00cc44" },
+  { label: "Blue", hex: "#0055ff" },
+  { label: "Purple", hex: "#8833ff" },
 ];
 
 export default function LedControl() {
   const { node_id } = useParams();
-  const nodeId      = parseInt(node_id, 10);
-  const navigate    = useNavigate();
+  const nodeId  = parseInt(node_id, 10);  // 10 represents the base of the number (node_id base 10)
+  const navigate = useNavigate();
 
-  const [deviceName,   setDeviceName]   = useState(`Node ${nodeId}`);
+  const [deviceName, setDeviceName] = useState(`Node ${nodeId}`);
   const [activePreset, setActivePreset] = useState(null);
 
-  // All LED state and commands come from the hook — same logic as LedTile
+  // All LED state and commands come from the hook, same logic as LedTile
   const { isOn, brightness, colorHex, toggle, changeBrightness, changeColor } = useLedState(nodeId);
 
   useEffect(() => {
