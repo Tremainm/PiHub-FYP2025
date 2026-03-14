@@ -1,0 +1,328 @@
+import { useState, useEffect } from "react";
+import { MdDarkMode, MdLightMode, MdRestartAlt } from "react-icons/md";
+import { getDevices, registerDevice, unregisterDevice } from "../api/devices";
+import { getMatterNodes, removeNode, setWifiCredentials, commissionDevice } from "../api/matter";
+import { useTheme } from "../context/ThemeContext";
+
+// ── Appearance section ────────────────────────────────────────────────────────
+
+/**
+ * AppearanceSection
+ *
+ * Renders theme controls at the top of Settings:
+ *   - Dark / Light mode toggle (large touch-friendly button)
+ *   - Sensor tile accent colour picker
+ *   - LED tile accent colour picker
+ *   - Reset colours button
+ *
+ * All state lives in ThemeContext — this component only reads and calls setters.
+ * No local state needed; the pickers are controlled via the context values.
+ */
+function AppearanceSection() {
+  const {
+    isDark,
+    toggleDark,
+    sensorColor,
+    setSensorColor,
+    ledColor,
+    setLedColor,
+    resetColors,
+  } = useTheme();
+
+  return (
+    <div className="settings-section">
+      <div className="settings-section-title">Appearance</div>
+      <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 20, lineHeight: 1.6 }}>
+        Customise the look of PiHub. Changes apply instantly and are saved
+        between sessions.
+      </p>
+
+      {/* ── Dark / Light toggle ──────────────────────────────────────────── */}
+      <div className="appearance-row">
+        <div className="appearance-field">
+          <div className="appearance-label">Theme</div>
+          <div className="appearance-desc">
+            Switch between dark and light mode.
+          </div>
+        </div>
+
+        {/*
+          Theme toggle button. Uses a two-part visual: an icon on the left
+          and a pill indicator on the right showing the current mode.
+          The active state is driven entirely by the isDark value from context.
+        */}
+        <button
+          className={`theme-toggle-btn ${isDark ? "dark" : "light"}`}
+          onClick={toggleDark}
+          aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          <span className="theme-toggle-icon">
+            {isDark ? <MdDarkMode size={18} /> : <MdLightMode size={18} />}
+          </span>
+          <span className="theme-toggle-label">
+            {isDark ? "Dark" : "Light"}
+          </span>
+          {/* Animated sliding pill */}
+          <span className="theme-toggle-track">
+            <span className="theme-toggle-thumb" />
+          </span>
+        </button>
+      </div>
+
+      <div className="divider" style={{ margin: "18px 0" }} />
+
+      {/* ── Tile accent colours ──────────────────────────────────────────── */}
+      <div className="appearance-colors-grid">
+
+        {/*
+          Sensor colour picker.
+          The <input type="color"> is a native browser colour wheel — on the
+          Pi's Chromium kiosk this renders as a full-screen colour picker,
+          which is touch-friendly. onChange fires on every change during drag;
+          we pass the hex string directly to setSensorColor which writes to
+          localStorage and triggers the accent CSS override in ThemeContext.
+        */}
+        <div className="appearance-color-item">
+          <label className="appearance-color-label" htmlFor="sensor-color-pick">
+            Sensor tile
+          </label>
+          <div className="appearance-color-swatch-row">
+            <input
+              id="sensor-color-pick"
+              type="color"
+              className="appearance-color-input"
+              value={sensorColor}
+              onChange={(e) => setSensorColor(e.target.value)}
+              aria-label="Sensor tile accent colour"
+            />
+            <span className="appearance-color-hex">{sensorColor}</span>
+          </div>
+        </div>
+
+        {/*
+          LED colour picker — same pattern as sensor, targets --led-* tokens.
+        */}
+        <div className="appearance-color-item">
+          <label className="appearance-color-label" htmlFor="led-color-pick">
+            LED tile
+          </label>
+          <div className="appearance-color-swatch-row">
+            <input
+              id="led-color-pick"
+              type="color"
+              className="appearance-color-input"
+              value={ledColor}
+              onChange={(e) => setLedColor(e.target.value)}
+              aria-label="LED tile accent colour"
+            />
+            <span className="appearance-color-hex">{ledColor}</span>
+          </div>
+        </div>
+
+      </div>
+
+      {/*
+        Reset button — calls resetColors() in ThemeContext which clears
+        localStorage keys and restores the built-in default accent values.
+      */}
+      <button
+        className="btn btn-ghost"
+        style={{ marginTop: 18, gap: 8 }}
+        onClick={resetColors}
+      >
+        <MdRestartAlt size={16} />
+        Reset to defaults
+      </button>
+    </div>
+  );
+}
+
+// ── Main Settings page ────────────────────────────────────────────────────────
+export default function Settings() {
+  // ── Wi-Fi credentials ──────────────────────────────────────────────────────
+  const [ssid,     setSsid]     = useState("");
+  const [password, setPassword] = useState("");
+  const [wifiMsg,  setWifiMsg]  = useState(null);
+
+  // ── Commissioning ──────────────────────────────────────────────────────────
+  const [pairingCode,   setPairingCode]   = useState("");
+  const [newNodeName,   setNewNodeName]   = useState("");
+  const [networkOnly,   setNetworkOnly]   = useState(false);
+  const [commissionMsg, setCommissionMsg] = useState(null);
+  const [commissioning, setCommissioning] = useState(false);
+
+  // ── Device management ──────────────────────────────────────────────────────
+  const [devices,   setDevices]   = useState([]);
+  const [removeMsg, setRemoveMsg] = useState(null);
+
+  useEffect(() => { loadDevices(); }, []);
+
+  function loadDevices() {
+    getDevices().then(setDevices).catch(console.error);
+  }
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
+  async function handleSetWifi(e) {
+    e.preventDefault();
+    setWifiMsg({ type: "info", text: "Setting credentials…" });
+    try {
+      await setWifiCredentials(ssid, password);
+      setWifiMsg({ type: "success", text: "Wi-Fi credentials saved to matter-server." });
+      setSsid(""); setPassword("");
+    } catch (err) {
+      setWifiMsg({ type: "error", text: err.message });
+    }
+  }
+
+  async function handleCommission(e) {
+    e.preventDefault();
+    if (!pairingCode.trim()) return;
+    setCommissioning(true);
+    setCommissionMsg({ type: "info", text: "Commissioning… this may take up to 2 minutes." });
+    try {
+      const result  = await commissionDevice(pairingCode.trim(), null, networkOnly);
+      const node_id = result?.result?.node_id ?? result?.node_id;
+      setCommissionMsg({ type: "success", text: `Device commissioned as node ${node_id}.` });
+
+      if (node_id && newNodeName.trim()) {
+        await registerDevice(node_id, newNodeName.trim());
+        loadDevices();
+      }
+
+      setPairingCode(""); setNewNodeName("");
+    } catch (err) {
+      setCommissionMsg({ type: "error", text: err.message });
+    } finally {
+      setCommissioning(false);
+    }
+  }
+
+  async function handleRemove(device) {
+    if (!window.confirm(`Remove "${device.name}" (node ${device.node_id}) from the fabric? The device will need a factory reset to re-commission.`)) return;
+    setRemoveMsg({ type: "info", text: `Removing ${device.name}…` });
+    try {
+      await removeNode(device.node_id);
+      await unregisterDevice(device.node_id);
+      loadDevices();
+      setRemoveMsg({ type: "success", text: `${device.name} removed.` });
+    } catch (err) {
+      setRemoveMsg({ type: "error", text: err.message });
+    }
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  return (
+    <div className="page">
+      <div className="page-header">
+        <h1 className="page-title">Settings</h1>
+        <p className="page-subtitle">Appearance, network, commissioning, and device management</p>
+      </div>
+
+      {/* ── Appearance ── NEW SECTION ──────────────────────────────────────── */}
+      <AppearanceSection />
+
+      {/* ── Wi-Fi credentials ─────────────────────────────────────────────── */}
+      <div className="settings-section">
+        <div className="settings-section-title">Wi-Fi Credentials</div>
+        <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
+          Set these before commissioning a Wi-Fi Matter device. Credentials are
+          stored in matter-server for the duration of commissioning only.
+        </p>
+        <form onSubmit={handleSetWifi}>
+          <div className="settings-row">
+            <input
+              className="form-input"
+              placeholder="SSID"
+              value={ssid}
+              onChange={(e) => setSsid(e.target.value)}
+              required
+            />
+            <input
+              className="form-input"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <button className="btn btn-primary" type="submit">Save Credentials</button>
+          </div>
+        </form>
+        {wifiMsg && <div className={`status-msg ${wifiMsg.type}`}>{wifiMsg.text}</div>}
+      </div>
+
+      {/* ── Commission ────────────────────────────────────────────────────── */}
+      <div className="settings-section">
+        <div className="settings-section-title">Commission a New Device</div>
+        <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
+          Enter the QR code string (MT:…) or 11-digit manual pairing code from the device.
+          For Wi-Fi devices, save Wi-Fi credentials above first.
+        </p>
+        <form onSubmit={handleCommission}>
+          <div className="settings-row">
+            <input
+              className="form-input"
+              placeholder="Pairing code (MT:… or 11 digits)"
+              value={pairingCode}
+              onChange={(e) => setPairingCode(e.target.value)}
+              required
+            />
+            <input
+              className="form-input"
+              placeholder="Device name (e.g. Living Room Sensor)"
+              value={newNodeName}
+              onChange={(e) => setNewNodeName(e.target.value)}
+            />
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "var(--text-dim)", minHeight: "var(--touch)" }}>
+              <input
+                type="checkbox"
+                checked={networkOnly}
+                onChange={(e) => setNetworkOnly(e.target.checked)}
+                style={{ width: 18, height: 18 }}
+              />
+              Skip Bluetooth (network/IP only)
+            </label>
+            <button className="btn btn-primary" type="submit" disabled={commissioning}>
+              {commissioning ? "Commissioning…" : "Commission Device"}
+            </button>
+          </div>
+        </form>
+        {commissionMsg && <div className={`status-msg ${commissionMsg.type}`}>{commissionMsg.text}</div>}
+      </div>
+
+      {/* ── Device list + removal ─────────────────────────────────────────── */}
+      <div className="settings-section">
+        <div className="settings-section-title">Registered Devices</div>
+
+        {removeMsg && <div className={`status-msg ${removeMsg.type}`} style={{ marginBottom: 14 }}>{removeMsg.text}</div>}
+
+        {devices.length === 0 ? (
+          <p style={{ color: "var(--text-muted)", fontSize: 14 }}>No devices registered yet.</p>
+        ) : (
+          <div className="node-list">
+            {devices.map((d) => (
+              <div className="node-row" key={d.node_id}>
+                <div className="node-info">
+                  <div className="node-name">{d.name}</div>
+                  <div className="node-id">node_id: {d.node_id}</div>
+                </div>
+                <button className="btn btn-danger" onClick={() => handleRemove(d)}>
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 16, lineHeight: 1.6 }}>
+          Note: Removing a device decommissions it from the Matter fabric and removes it
+          from the name registry. The device will need a factory reset before it can be
+          re-commissioned. If you are changing Wi-Fi networks, you may also need to clear
+          the <code style={{ fontFamily: "var(--font-mono)" }}>/data</code> directory inside the
+          matter-server container and re-commission from scratch.
+        </p>
+      </div>
+    </div>
+  );
+}

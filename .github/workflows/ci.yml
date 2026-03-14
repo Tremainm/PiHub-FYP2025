@@ -1,0 +1,89 @@
+# .github/workflows/ci.yml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+
+  # ── Test job ───────────────────────────────────────────────────
+  # Runs pytest against the backend before building Docker images.
+  # If tests fail, the docker job is skipped entirely.
+  # test:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - name: Set up Python
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: '3.11'
+
+  #     - name: Install dependencies
+  #       run: pip install -r backend/requirements.txt
+
+  #     - name: Run tests
+  #       # APP_ENV=test makes database.py load .env.test (SQLite, no retries)
+  #       # so tests run without needing a real Postgres container.
+  #       run: |
+  #         cd backend
+  #         APP_ENV=test pytest --cov=app --cov-report=term-missing
+
+  # ── Docker build + push job ────────────────────────────────────
+  # Only runs if the test job passes.
+  # Builds backend and frontend images and pushes to GHCR.
+  docker:
+    runs-on: ubuntu-latest
+    # needs: test       # skips this job if tests fail
+
+    permissions:
+      contents: read
+      packages: write  # required to push to GHCR
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Lowercase the repo owner — GHCR requires lowercase image names.
+      # github.repository_owner can contain uppercase (e.g. TremainM).
+      - name: Set image prefix
+        run: echo "IMAGE_PREFIX=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/pihub" >> $GITHUB_ENV
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── Backend ──────────────────────────────────────────────
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}-backend:latest
+            ${{ env.IMAGE_PREFIX }}-backend:${{ github.sha }}
+          # Cache layers in GHCR — speeds up rebuilds significantly.
+          # mode=max caches all intermediate layers, not just the final image.
+          cache-from: type=registry,ref=${{ env.IMAGE_PREFIX }}-backend:buildcache
+          cache-to:   type=registry,ref=${{ env.IMAGE_PREFIX }}-backend:buildcache,mode=max
+
+      # ── Frontend ─────────────────────────────────────────────
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}-frontend:latest
+            ${{ env.IMAGE_PREFIX }}-frontend:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.IMAGE_PREFIX }}-frontend:buildcache
+          cache-to:   type=registry,ref=${{ env.IMAGE_PREFIX }}-frontend:buildcache,mode=max

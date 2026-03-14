@@ -32,6 +32,7 @@ import logging
 import os
 import uuid
 from typing import Any, Optional
+from dotenv import load_dotenv
 
 import websockets
 
@@ -488,23 +489,21 @@ async def set_brightness(
     endpoint_id: int = 1,
 ) -> dict[str, Any]:
     """
-    Set brightness via LevelControl:MoveToLevel.
+    Set brightness via LevelControl:MoveToLevelWithOnOff.
+
+    Uses MoveToLevelWithOnOff (command 4) rather than MoveToLevel (command 0).
+    Colour re-assertion after brightness is handled by the frontend — the hook
+    always re-sends the current colour immediately after this command resolves,
+    using its locally stored colorHexRef which is never touched by cache polls.
 
     Args:
-        level:           Target brightness 0-254 (0=minimum, 254=maximum).
-                         Note: level 0 does NOT change the OnOff state. Use
-                         turn_off() for a clean off so the bulb remembers its
-                         last brightness level for the next turn_on().
+        level:           Target brightness 1-254.
         transition_time: Fade duration in tenths of a second (0 = immediate).
-                         E.g. transition_time=10 fades over 1 second.
-
-    optionsMask/optionsOverride=0 means execute regardless of current OnOff
-    state, which is the standard best practice for this command.
     """
     return await _send_command(
-        node_id, endpoint_id, CLUSTER_LEVEL_CONTROL, "MoveToLevel",
+        node_id, endpoint_id, CLUSTER_LEVEL_CONTROL, "MoveToLevelWithOnOff",
         {
-            "level":           max(0, min(254, level)),
+            "level":           max(1, min(254, level)),
             "transitionTime":  transition_time,
             "optionsMask":     0,
             "optionsOverride": 0,

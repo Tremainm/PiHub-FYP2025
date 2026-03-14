@@ -1,0 +1,53 @@
+# docker-compose.yml — SOURCE REPO (local dev only)
+# Uses 'build:' so you get live rebuilds from local source.
+# Not used on the Pi — that uses the deployment repo.
+
+services:
+
+  db:
+    image: postgres:17-alpine
+    env_file: backend/.env.docker
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"       # 5433 on host avoids clashing with any local Postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U pihub -d pihub"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - pihub-net
+
+  backend:
+    build: ./backend
+    env_file: backend/.env.docker
+    environment:
+      - APP_ENV=docker
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Linux: makes host reachable from container
+    restart: unless-stopped
+    networks:
+      - pihub-net
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    networks:
+      - pihub-net
+
+volumes:
+  postgres-data:
+
+networks:
+  pihub-net:
+    driver: bridge

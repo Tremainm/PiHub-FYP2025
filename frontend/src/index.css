@@ -1,0 +1,19 @@
+/*
+ * index.css
+ *
+ * Minimal Vite entry stylesheet. All design tokens, colour schemes, and
+ * component styles live in styles.css. This file only handles a few global
+ * resets that must be applied before styles.css is parsed.
+ *
+ * NOTE: The default Vite scaffold includes a prefers-color-scheme media query
+ * that sets a dark background and light text. That block has been removed
+ * because styles.css and ThemeContext own the theming entirely — the Vite
+ * defaults would override our CSS variable system and cause flicker.
+ */
+
+:root {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
