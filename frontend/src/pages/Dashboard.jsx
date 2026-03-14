@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { getDevices } from "../api/devices";
-import { getSensorLive, LED_NODE_IDS } from "../api/sensors";
-import { SENSOR_NODE_IDS } from "../config/nodeId.config"
+import { getSensorLive } from "../api/sensors";
+import { SENSOR_NODE_IDS, LED_NODE_IDS } from "../config/nodeId.config"
 import SensorTile from "../components/SensorTile";
 import LedTile from "../components/LedTile";
 

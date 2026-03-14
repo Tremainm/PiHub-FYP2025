@@ -4,3 +4,9 @@ __pycache__/
 venv
 .vscode
 node_modules/
+
+.env
+.env.test
+.env.docker
+.env.test
+*.db

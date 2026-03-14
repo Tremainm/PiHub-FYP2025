@@ -32,6 +32,7 @@ import logging
 import os
 import uuid
 from typing import Any, Optional
+from dotenv import load_dotenv
 
 import websockets
 
