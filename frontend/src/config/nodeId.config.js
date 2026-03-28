@@ -1,2 +1,2 @@
 export const SENSOR_NODE_IDS = [2];
-export const LED_NODE_IDS    = [9];
+export const LED_NODE_IDS    = [7];
