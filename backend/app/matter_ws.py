@@ -1,25 +1,22 @@
 """
-matter_ws.py — Single-connection Matter WebSocket client.
+matter_ws.py: Single-connection Matter WebSocket client.
 
 Architecture
 ------------
 One persistent WebSocket connection handles everything:
 
-  ┌──────────────────────────────────────────────────────┐
-  │              _background_listener() loop             │
-  │                                                      │
-  │  start_listening dump  →  populate _attribute_cache  │
-  │  attribute_updated     →  update cache               │
-  │  node_updated          →  update cache               │
-  │  node_added            →  update cache               │
-  │  node_removed          →  evict from cache           │
-  │  msg_id in _pending    →  resolve Future for caller  │
-  └──────────────────────────────────────────────────────┘
+_background_listener() loop:
+start_listening dump  ->  populate _attribute_cache
+attribute_updated     ->  update cache
+node_updated          ->  update cache
+node_added            ->  update cache
+node_removed          ->  evict from cache
+msg_id in _pending    ->  resolve Future for caller
 
 Commands (turn_on, commission, remove_node, etc.) use _ws_call(),
 which sends over the SAME connection and registers an asyncio.Future
 in _pending. The listener loop resolves that Future when the matching
-response arrives — no second connection is ever opened, so no
+response arrives, no second connection is ever opened, so no
 subscription events are stolen or discarded.
 
 Sensor data is read exclusively from _attribute_cache, populated by
@@ -67,12 +64,20 @@ CLUSTER_LEVEL_CONTROL = 0x0008
 CLUSTER_COLOR_CONTROL = 0x0300
 CLUSTER_TEMPERATURE   = 0x0402  # Temperature Measurement
 CLUSTER_HUMIDITY      = 0x0405  # Relative Humidity Measurement
+# CLUSTER_CONTEXT       = 0xFC00  # Vendor: TinyML context classification
 
-ATTR_MEASURED_VALUE   = 0x0000  # Used by both temp and humidity clusters
-ATTR_ON_OFF           = 0x0000  # OnOff cluster — current on/off state
-ATTR_CURRENT_LEVEL    = 0x0000  # LevelControl — current brightness level
-ATTR_COLOR_X          = 0x0003  # ColorControl — CIE x coordinate
-ATTR_COLOR_Y          = 0x0004  # ColorControl — CIE y coordinate
+ATTR_MEASURED_VALUE     = 0x0000  # Used by both temp and humidity clusters
+ATTR_MIN_MEASURED_VALUE = 0x0001  # Repurposed to carry TinyML context class (workaround)
+ATTR_ON_OFF             = 0x0000  # OnOff cluster — current on/off state
+ATTR_CURRENT_LEVEL      = 0x0000  # LevelControl — current brightness level
+ATTR_COLOR_X            = 0x0003  # ColorControl — CIE x coordinate
+ATTR_COLOR_Y            = 0x0004  # ColorControl — CIE y coordinate
+
+CONTEXT_LABELS = {
+    0: "HEATING_ON",
+    1: "NORMAL",
+    2: "WINDOW_OPEN",
+}
 
 # ── Background listener ───────────────────────────────────────────────────────
 
@@ -157,6 +162,9 @@ async def _background_listener() -> None:
                         if not isinstance(data, list) or len(data) != 3:
                             continue
                         node_id, attr_path, value = data
+
+                        if node_id == 2:
+                            logger.info("ATTR PATH DEBUG: node=%s path=%s value=%s", node_id, attr_path, value)
 
                         key = (node_id, attr_path)
                         _attribute_cache[key] = value
@@ -370,6 +378,7 @@ def get_cached_sensor_data(node_id: int) -> dict[str, Optional[float]]:
     return {
         "temperature_c": get_cached_temperature(node_id),
         "humidity_rh":   get_cached_humidity(node_id),
+        **get_cached_context(node_id),
     }
 
 
@@ -379,6 +388,25 @@ def get_cached_light_state(node_id: int) -> dict[str, Any]:
         "on":         get_cached_on_off(node_id),
         "brightness": get_cached_brightness(node_id),
         "color_xy":   get_cached_color_xy(node_id),
+    }
+
+def get_cached_context(node_id: int) -> dict:
+    """
+    Read TinyML context classification from MinMeasuredValue on the humidity endpoint.
+
+    The correct approach is vendor cluster 0xFC00, which is correctly implemented
+    in firmware but a known CHIP SDK bug breaks this (connectedhomeip issue #32371). 
+    As a workaround, the firmware also writes the integer context class 
+    (0=HEATING_ON, 1=NORMAL, 2=WINDOW_OPEN) to MinMeasuredValue (attribute 0x0001) on 
+    the humidity cluster, which the SDK passes through without filtering.
+    """
+    raw = _find_cached(node_id, CLUSTER_HUMIDITY, ATTR_MIN_MEASURED_VALUE)
+    if raw is None:
+        return {"context_class": None, "context_label": None}
+    class_id = int(raw)
+    return {
+        "context_class": class_id,
+        "context_label": CONTEXT_LABELS.get(class_id, "UNKNOWN"),
     }
 
 

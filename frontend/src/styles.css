@@ -477,6 +477,42 @@ button, input, select, textarea {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   SENSOR TILE — CONTEXT CLASSIFICATION BADGE
+   ═══════════════════════════════════════════════════════════════════════════ */
+.context-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 12px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--context-color, var(--border));
+  background: var(--context-color-pale, var(--surface-2));
+  color: var(--context-color, var(--text-muted));
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+
+.context-badge.heating {
+  --context-color:      #e07b54;
+  --context-color-pale: rgba(224, 123, 84, 0.10);
+}
+
+.context-badge.normal {
+  --context-color:      var(--green);
+  --context-color-pale: var(--green-pale);
+}
+
+.context-badge.window {
+  --context-color:      #5ab4d6;
+  --context-color-pale: rgba(90, 180, 214, 0.10);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    LED TILE — STATUS ROW
    ═══════════════════════════════════════════════════════════════════════════ */
 .led-status-row {

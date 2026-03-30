@@ -5,12 +5,25 @@ import { MdSensors } from "react-icons/md";
  *
  * Props:
  *   device  { node_id, name }   from DeviceDB
- *   reading { temperature_c, humidity_rh } | null   from live cache
+ *   reading { temperature_c, humidity_rh, context_class, context_label } | null
  *   onClick  function   navigate to history page
  */
+
+// Colour and emoji for each context label used to give the badge
+// visual meaning at a glance on the dashboard
+const CONTEXT_STYLE = {
+  HEATING_ON:  { modifier: "heating", emoji: "🔥" },
+  NORMAL:      { modifier: "normal",  emoji: "✓"  },
+  WINDOW_OPEN: { modifier: "window",  emoji: "🪟" },
+};
+
 export default function SensorTile({ device, reading, onClick }) {
   const temp = reading?.temperature_c;
   const hum  = reading?.humidity_rh;
+  const label   = reading?.context_label;
+
+  // Look up style for the current label, fall back to neutral grey if unknown
+  const style = CONTEXT_STYLE[label] ?? { modifier: "", emoji: "?" };
 
   return (
     <div className="tile sensor-tile" onClick={onClick}>
@@ -34,6 +47,12 @@ export default function SensorTile({ device, reading, onClick }) {
           </div>
         </div>
       </div>
+      {label != null && (
+        <div className={`context-badge ${style.modifier}`}>
+          <span>{style.emoji}</span>
+          <span>{label.replace("_", " ")}</span>
+        </div>
+      )}
     </div>
   );
 }
