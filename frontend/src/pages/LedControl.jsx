@@ -22,7 +22,7 @@ export default function LedControl() {
   const [deviceName, setDeviceName] = useState(`Node ${nodeId}`);
   const [activePreset, setActivePreset] = useState(null);
 
-  // All LED state and commands come from the hook, same logic as LedTile
+  // All LED state and commands come from useLedState
   const { isOn, brightness, colorHex, toggle, changeBrightness, changeColor } = useLedState(nodeId);
 
   useEffect(() => {
@@ -52,7 +52,7 @@ export default function LedControl() {
 
       <div className="page-header">
         <h1 className="page-title">{deviceName}</h1>
-        <p className="page-subtitle">LED Bulb Control</p>
+        <p className="page-subtitle">{deviceName} Control</p>
       </div>
 
       <div className="led-control-panel">
@@ -84,7 +84,7 @@ export default function LedControl() {
           <div className="control-label">Colour</div>
           <div className="color-picker-wrap">
             <input
-              type="color"
+              type="color"  // built-in HTML input type - native browser colour picker
               className="color-input"
               value={colorHex}
               onChange={(e) => handleColorChange(e.target.value)}

@@ -45,7 +45,7 @@ const ThemeContext = createContext(null);
 // -- Helpers -------------------------------------------------------------------
 
 /**
- * hexToRgb — parse #rrggbb → { r, g, b } integers.
+ * hexToRgb: parse #rrggbb -> { r, g, b } integers.
  */
 function hexToRgb(hex) {
   const n = parseInt(hex.replace("#", ""), 16);
@@ -66,15 +66,15 @@ function buildAccentVars(role, hex, isDark) {
   const { r, g, b } = hexToRgb(hex);
 
   // Blend base toward white by 12% for the light variant
-  const lr    = Math.min(255, Math.round(r + (255 - r) * 0.12));
-  const lg    = Math.min(255, Math.round(g + (255 - g) * 0.12));
-  const lb    = Math.min(255, Math.round(b + (255 - b) * 0.12));
+  const lr = Math.min(255, Math.round(r + (255 - r) * 0.12));
+  const lg = Math.min(255, Math.round(g + (255 - g) * 0.12));
+  const lb = Math.min(255, Math.round(b + (255 - b) * 0.12));
   const light = `#${lr.toString(16).padStart(2, "0")}${lg.toString(16).padStart(2, "0")}${lb.toString(16).padStart(2, "0")}`;
 
   // Dark mode uses a more subtle tint to avoid washed-out pastels on dark surfaces
-  const pale   = isDark ? `rgba(${r},${g},${b},0.08)` : `rgba(${r},${g},${b},0.09)`;
+  const pale = isDark ? `rgba(${r},${g},${b},0.08)` : `rgba(${r},${g},${b},0.09)`;
   const border = isDark ? `rgba(${r},${g},${b},0.30)` : `rgba(${r},${g},${b},0.28)`;
-  const glow   = `rgba(${r},${g},${b},0.12)`;
+  const glow = `rgba(${r},${g},${b},0.12)`;
 
   return `
     --${role}: ${hex};

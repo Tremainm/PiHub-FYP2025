@@ -7,6 +7,8 @@ import SensorTile from "../components/SensorTile";
 import LedTile from "../components/LedTile";
 
 export default function Dashboard() {
+  // navigate() is used as a callback prop on tiles. 
+  // Link can't be passed as a function
   const navigate = useNavigate();
 
   const POLL_INTERVAL = 4000;
@@ -23,7 +25,7 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Poll sensor live cache: LED state is now handled inside useLedState
+  // Poll sensor live cache
   const refreshSensors = useCallback(() => {
     SENSOR_NODE_IDS.forEach((id) => {
       getSensorLive(id)

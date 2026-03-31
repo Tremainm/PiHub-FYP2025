@@ -1,4 +1,4 @@
-import { MdSensors } from "react-icons/md";
+import { MdSensors, MdLocalFireDepartment, MdCheckCircle, MdAir } from "react-icons/md";
 
 /**
  * SensorTile: shows live temperature and humidity for a sensor node.
@@ -9,21 +9,21 @@ import { MdSensors } from "react-icons/md";
  *   onClick  function   navigate to history page
  */
 
-// Colour and emoji for each context label used to give the badge
+// Colour and icon for each context label used to give the badge
 // visual meaning at a glance on the dashboard
 const CONTEXT_STYLE = {
-  HEATING_ON:  { modifier: "heating", emoji: "🔥" },
-  NORMAL:      { modifier: "normal",  emoji: "✓"  },
-  WINDOW_OPEN: { modifier: "window",  emoji: "🪟" },
+  HEATING_ON:  { modifier: "heating", icon: <MdLocalFireDepartment /> },
+  NORMAL:      { modifier: "normal",  icon: <MdCheckCircle />         },
+  WINDOW_OPEN: { modifier: "window",  icon: <MdAir />                 },
 };
 
 export default function SensorTile({ device, reading, onClick }) {
   const temp = reading?.temperature_c;
-  const hum  = reading?.humidity_rh;
-  const label   = reading?.context_label;
+  const hum = reading?.humidity_rh;
+  const label = reading?.context_label;
 
   // Look up style for the current label, fall back to neutral grey if unknown
-  const style = CONTEXT_STYLE[label] ?? { modifier: "", emoji: "?" };
+  const style = CONTEXT_STYLE[label] ?? { modifier: "", icon: "?" };
 
   return (
     <div className="tile sensor-tile" onClick={onClick}>
@@ -49,7 +49,7 @@ export default function SensorTile({ device, reading, onClick }) {
       </div>
       {label != null && (
         <div className={`context-badge ${style.modifier}`}>
-          <span>{style.emoji}</span>
+          <span>{style.icon}</span>
           <span>{label.replace("_", " ")}</span>
         </div>
       )}
