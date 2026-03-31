@@ -10,23 +10,14 @@ export function useLedState(nodeId) {
   const [brightness, setBri] = useState(128);
   const [colorHex, setColorHex] = useState(DEFAULT_COLOR);
 
-  const isOnRef = useRef(false);
-  const brightnessRef = useRef(128);
-  const colorHexRef = useRef(DEFAULT_COLOR);
-  const pendingRef = useRef(false);
-
   // Once the user explicitly picks a colour, the poll must never overwrite it.
   // The xyToHex round-trip is lossy, every poll would drift the colour slightly,
-  // and changeBrightness re-sends whatever is in colorHexRef, so any drift
+  // and changeBrightness re-sends whatever is in colorHex, so any drift
   // compounds into a completely wrong colour over time.
   const userSetColorRef = useRef(false);
-
+  const pendingRef = useRef(false);       // prevents poller from overwriting UI
   const brightnessTimer = useRef(null);
   const colorTimer = useRef(null);
-
-  function setIsOnBoth(val) { setIsOn(val); isOnRef.current = val; }
-  function setBriBoth(val) { setBri(val); brightnessRef.current = val; }
-  function setColorHexBoth(val) { setColorHex(val); colorHexRef.current = val; }
 
   // -- Sync from Matter cache ---------------------------------
   // Polls on mount and every POLL_INTERVAL ms to stay in sync with external
@@ -37,14 +28,14 @@ export function useLedState(nodeId) {
     getLightState(nodeId)
       .then((state) => {
         if (!state || pendingRef.current) return;
-        if (state.on !== null && state.on !== undefined) setIsOnBoth(state.on);
-        if (state.brightness != null) setBriBoth(state.brightness);
+        if (state.on !== null && state.on !== undefined) setIsOn(state.on);
+        if (state.brightness != null) setBri(state.brightness);
         if (state.color_xy && !userSetColorRef.current) {
-          setColorHexBoth(xyToHex(state.color_xy.x, state.color_xy.y));
+          setColorHex(xyToHex(state.color_xy.x, state.color_xy.y));
         }
       })
       .catch(() => {});
-  }, [nodeId]);
+  }, [nodeId]); // function reference only changes if nodeId changes
 
   useEffect(() => {
     syncFromCache();
@@ -55,13 +46,13 @@ export function useLedState(nodeId) {
   // -- Commands ----------------------------------------------
 
   async function toggle() {
-    const next = !isOnRef.current;
-    setIsOnBoth(next);
+    const next = !isOn;
+    setIsOn(next);
     pendingRef.current = true;
     try {
       await toggleLight(nodeId);
     } catch (err) {
-      setIsOnBoth(!next);
+      setIsOn(!next);
       console.error("Toggle failed:", err);
     } finally {
       setTimeout(() => { pendingRef.current = false; }, POLL_INTERVAL + 1000);
@@ -69,7 +60,7 @@ export function useLedState(nodeId) {
   }
 
   async function changeBrightness(level) {
-    setBriBoth(level);
+    setBri(level);
     clearTimeout(brightnessTimer.current);
     pendingRef.current = true;
     brightnessTimer.current = setTimeout(async () => {
@@ -79,10 +70,10 @@ export function useLedState(nodeId) {
         // This eliminates the white flash, the firmware re-applies colour
         // immediately after brightness using the already-updated globals.
         if (userSetColorRef.current) {
-          const { x, y } = hexToXY(colorHexRef.current);
+          const { x, y } = hexToXY(colorHex);
           await setColorXY(nodeId, x, y);
         }
-        await setBrightness(nodeId, brightnessRef.current);
+        await setBrightness(nodeId, level);
       } catch (err) {
         console.error("Brightness failed:", err);
       } finally {
@@ -92,16 +83,13 @@ export function useLedState(nodeId) {
   }
 
   function changeColor(hex) {
-    // This is the ONLY place colorHexRef is written after mount.
-    // Mark that the user has set a colour so the poll stops syncing it
-    // and changeBrightness starts re-asserting it.
     userSetColorRef.current = true;
-    setColorHexBoth(hex);
+    setColorHex(hex);
     clearTimeout(colorTimer.current);
     pendingRef.current = true;
     colorTimer.current = setTimeout(async () => {
       try {
-        const { x, y } = hexToXY(colorHexRef.current);
+        const { x, y } = hexToXY(hex);
         await setColorXY(nodeId, x, y);
       } catch (err) {
         console.error("Color failed:", err);
