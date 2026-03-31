@@ -18,6 +18,8 @@ export default function Toggle({ on, onChange, disabled = false }) {
       className={`toggle-btn ${on ? "on" : ""}`}
       onClick={handleClick}
       disabled={disabled}
+      // Accessible Rich Internet Applications
+      // screen readers that communicate LED state
       aria-label={on ? "Turn off" : "Turn on"}
       aria-pressed={on}
     />
