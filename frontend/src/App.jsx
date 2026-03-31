@@ -8,12 +8,12 @@ import SensorHistory from "./pages/SensorHistory";
 import Settings from "./pages/Settings";
 
 /**
- * App — root component.
+ * App: root component.
  *
  * ThemeProvider wraps everything so that any component in the tree can call
  * useTheme() to read or mutate the current theme. The provider applies
  * data-theme="dark|light" to <html> and injects accent colour overrides via
- * a <style> tag — no prop-drilling required.
+ * a <style> tag. No prop-drilling required.
  */
 export default function App() {
   return (

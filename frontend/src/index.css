@@ -7,7 +7,7 @@
  *
  * NOTE: The default Vite scaffold includes a prefers-color-scheme media query
  * that sets a dark background and light text. That block has been removed
- * because styles.css and ThemeContext own the theming entirely — the Vite
+ * because styles.css and ThemeContext own the theming entirely - the Vite
  * defaults would override our CSS variable system and cause flicker.
  */
 
