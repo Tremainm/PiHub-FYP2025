@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { getLightState, toggleLight, setBrightness, setColorXY } from "../api/matter";
-import { hexToXY, xyToHex } from "../api/matter";
+import { hexToXY, xyToHex } from "../components/ColourHelpers";
 
 const POLL_INTERVAL = 4000;
 const DEFAULT_COLOR = "#ffaa44";
