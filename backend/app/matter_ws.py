@@ -42,18 +42,18 @@ MATTER_WS_URL = os.getenv("MATTER_WS_URL", "ws://127.0.0.1:5580/ws")
 # The single shared WebSocket object. None while disconnected/reconnecting.
 _ws: Optional[Any] = None
 
-# Pending one-shot calls: message_id → asyncio.Future.
+# Pending one-shot calls: message_id -> asyncio.Future.
 # The listener loop resolves these when the matching response arrives.
 _pending: dict[str, asyncio.Future] = {}
 
 # ── Attribute cache ───────────────────────────────────────────────────────────
 
-# Keyed by (node_id, attribute_path), e.g. (1, "1/1026/0") → 1820
+# Keyed by (node_id, attribute_path), e.g. (1, "1/1026/0") -> 1820
 _attribute_cache: dict[tuple[int, str], Any] = {}
 
 # ── Subscriber callbacks ──────────────────────────────────────────────────────
 
-# (node_id, attribute_path) → list of async callables
+# (node_id, attribute_path) -> list of async callables
 # Signature: async def cb(node_id: int, attr_path: str, value: Any) -> None
 _subscribers: dict[tuple[int, str], list] = {}
 
