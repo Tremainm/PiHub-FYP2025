@@ -25,6 +25,8 @@ from .matter_ws import (
     get_cached_humidity,
     get_cached_sensor_data,
     get_cached_light_state,
+    get_cached_context,
+    CONTEXT_LABELS,
     get_nodes,
     remove_node,
     set_wifi_credentials,
@@ -107,17 +109,34 @@ def _register_sensor_callbacks(sensor_node_ids: list[int]) -> None:
                 None, _persist_sensor_reading, node_id, "humidity_rh", value
             )
             logger.debug("Persisted humidity node=%s %.2f%%", node_id, value)
+    
+    async def on_context(node_id: int, path: str, raw_value) -> None:
+        """
+        Persist context classification readings to the DB.
+        Receives updates via MinMeasuredValue on the humidity cluster (workaround).
+        Stored as sensor_type='context' with value 0.0/1.0/2.0.
+        """
+        if isinstance(raw_value, (int, float)):
+            class_id = int(raw_value)
+            label = CONTEXT_LABELS.get(class_id, "UNKNOWN")
+            await asyncio.get_event_loop().run_in_executor(
+                None, _persist_sensor_reading, node_id, "context", float(class_id)
+            )
+            logger.debug(
+                "Persisted context node=%s class=%d label=%s", node_id, class_id, label
+            )
 
     for node_id in sensor_node_ids:
         register_callback(node_id, "1/1026/0", on_temperature)
         register_callback(node_id, "2/1029/0", on_humidity)
+        register_callback(node_id, "2/1029/1", on_context)   # MinMeasuredValue workaround
         logger.info("Registered sensor DB callbacks for node %s", node_id)
 
 
 # ── Lifespan ──────────────────────────────────────────────────────────────────
 
 # Node IDs of your sensor devices. Extend this list as you commission more.
-SENSOR_NODE_IDS = [2]
+SENSOR_NODE_IDS = [1]
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
