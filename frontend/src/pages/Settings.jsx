@@ -48,9 +48,15 @@ export default function Settings() {
     try {
       const result  = await commissionDevice(pairingCode.trim(), null, networkOnly);
       const node_id = result?.result?.node_id ?? result?.node_id;
+
+      if (!node_id) {
+        setCommissionMsg({ type: "error", text: "Commissioning failed: no node ID returned." });
+        return;
+      }
+
       setCommissionMsg({ type: "success", text: `Device commissioned as node ${node_id}.` });
 
-      if (node_id && newNodeName.trim()) {
+      if (newNodeName.trim()) {
         await registerDevice(node_id, newNodeName.trim());
         loadDevices();
       }
