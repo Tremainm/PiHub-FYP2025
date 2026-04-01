@@ -53,7 +53,7 @@ def _seed(node_id: int, sensor_type: str, value: float):
     db.close()
 
 
-# ── History endpoint ──────────────────────────────────────────────────────────
+# -- History endpoint ----------------------------------------------------------
 
 def test_sensor_history_empty(client):
     r = client.get("/api/sensors/1/history")
