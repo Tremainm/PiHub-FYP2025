@@ -35,7 +35,7 @@ import websockets
 
 logger = logging.getLogger(__name__)
 
-# ── Connection ────────────────────────────────────────────────────────────────
+# -- Connection ----------------------------------------------------------------
 
 MATTER_WS_URL = os.getenv("MATTER_WS_URL", "ws://127.0.0.1:5580/ws")
 
@@ -46,18 +46,18 @@ _ws: Optional[Any] = None
 # The listener loop resolves these when the matching response arrives.
 _pending: dict[str, asyncio.Future] = {}
 
-# ── Attribute cache ───────────────────────────────────────────────────────────
+# -- Attribute cache -----------------------------------------------------------
 
 # Keyed by (node_id, attribute_path), e.g. (1, "1/1026/0") -> 1820
 _attribute_cache: dict[tuple[int, str], Any] = {}
 
-# ── Subscriber callbacks ──────────────────────────────────────────────────────
+# -- Subscriber callbacks ------------------------------------------------------
 
 # (node_id, attribute_path) -> list of async callables
 # Signature: async def cb(node_id: int, attr_path: str, value: Any) -> None
 _subscribers: dict[tuple[int, str], list] = {}
 
-# ── Matter cluster / attribute constants ──────────────────────────────────────
+# -- Matter cluster / attribute constants --------------------------------------
 
 CLUSTER_ON_OFF        = 0x0006
 CLUSTER_LEVEL_CONTROL = 0x0008
@@ -68,10 +68,10 @@ CLUSTER_HUMIDITY      = 0x0405  # Relative Humidity Measurement
 
 ATTR_MEASURED_VALUE     = 0x0000  # Used by both temp and humidity clusters
 ATTR_MIN_MEASURED_VALUE = 0x0001  # Repurposed to carry TinyML context class (workaround)
-ATTR_ON_OFF             = 0x0000  # OnOff cluster — current on/off state
-ATTR_CURRENT_LEVEL      = 0x0000  # LevelControl — current brightness level
-ATTR_COLOR_X            = 0x0003  # ColorControl — CIE x coordinate
-ATTR_COLOR_Y            = 0x0004  # ColorControl — CIE y coordinate
+ATTR_ON_OFF             = 0x0000  # OnOff cluster - current on/off state
+ATTR_CURRENT_LEVEL      = 0x0000  # LevelControl - current brightness level
+ATTR_COLOR_X            = 0x0003  # ColorControl - CIE x coordinate
+ATTR_COLOR_Y            = 0x0004  # ColorControl - CIE y coordinate
 
 CONTEXT_LABELS = {
     0: "HEATING_ON",
@@ -79,7 +79,7 @@ CONTEXT_LABELS = {
     2: "WINDOW_OPEN",
 }
 
-# ── Background listener ───────────────────────────────────────────────────────
+# -- Background listener -------------------------------------------------------
 
 async def _background_listener() -> None:
     """
@@ -92,11 +92,11 @@ async def _background_listener() -> None:
 
     Two categories of incoming messages are handled:
 
-    1. Command responses — any message whose message_id matches an entry in
+    1. Command responses - any message whose message_id matches an entry in
        _pending. The corresponding asyncio.Future is resolved, waking up
        whatever coroutine is awaiting _ws_call().
 
-    2. Events — attribute_updated, node_updated, node_added, node_removed.
+    2. Events - attribute_updated, node_updated, node_added, node_removed.
        These update _attribute_cache so /live endpoints always return fresh data.
 
     On disconnect, pending Futures are cancelled immediately (ConnectionError)
@@ -112,7 +112,7 @@ async def _background_listener() -> None:
                 ping_timeout=20,
             ) as ws:
                 _ws = ws
-                logger.info("Connected to matter-server — sending start_listening")
+                logger.info("Connected to matter-server - sending start_listening")
 
                 listen_id = uuid.uuid4().hex
                 await ws.send(json.dumps({
@@ -129,7 +129,7 @@ async def _background_listener() -> None:
 
                     msg_id = msg.get("message_id")
 
-                    # ── 1. Resolve a pending _ws_call() Future ────────────
+                    # -- 1. Resolve a pending _ws_call() Future ------------
                     # Any message whose ID is in _pending is a command
                     # response. Resolve the Future so the awaiting coroutine
                     # continues with the result.
@@ -139,7 +139,7 @@ async def _background_listener() -> None:
                             future.set_result(msg)
                         continue
 
-                    # ── 2. Initial start_listening node dump ──────────────
+                    # -- 2. Initial start_listening node dump --------------
                     # result is a list of MatterNode dicts. Cache all
                     # attributes immediately so /live endpoints have data
                     # from the first request after startup.
@@ -149,11 +149,11 @@ async def _background_listener() -> None:
                             for node in nodes:
                                 _cache_node(node)
                         logger.info(
-                            "Cache warm-up complete — %d entries", len(_attribute_cache)
+                            "Cache warm-up complete - %d entries", len(_attribute_cache)
                         )
                         continue
 
-                    # ── 3. Live events ────────────────────────────────────
+                    # -- 3. Live events ------------------------------------
                     event = msg.get("event")
 
                     if event == "attribute_updated":
@@ -162,10 +162,6 @@ async def _background_listener() -> None:
                         if not isinstance(data, list) or len(data) != 3:
                             continue
                         node_id, attr_path, value = data
-
-                        if node_id == 2:
-                            logger.info("ATTR PATH DEBUG: node=%s path=%s value=%s", node_id, attr_path, value)
-
                         key = (node_id, attr_path)
                         _attribute_cache[key] = value
                         logger.debug(
@@ -187,7 +183,7 @@ async def _background_listener() -> None:
                             _cache_node(data)
 
                     elif event == "node_removed":
-                        # A node was decommissioned — evict its cache entries.
+                        # A node was decommissioned - evict its cache entries.
                         data = msg.get("data", {})
                         if isinstance(data, dict):
                             node_id = data.get("node_id")
@@ -195,7 +191,7 @@ async def _background_listener() -> None:
                                 _evict_node(node_id)
 
         except (websockets.ConnectionClosed, OSError) as exc:
-            logger.warning("matter-server disconnected: %s — reconnecting in 5s", exc)
+            logger.warning("matter-server disconnected: %s - reconnecting in 5s", exc)
         finally:
             _ws = None
             # Cancel pending Futures so callers get an immediate error
@@ -203,7 +199,7 @@ async def _background_listener() -> None:
             for fut in _pending.values():
                 if not fut.done():
                     fut.set_exception(
-                        ConnectionError("WebSocket disconnected — retry after reconnect")
+                        ConnectionError("WebSocket disconnected - retry after reconnect")
                     )
             _pending.clear()
             await asyncio.sleep(5)
@@ -214,7 +210,7 @@ def _cache_node(node: dict) -> None:
     Write all attributes from a MatterNode dict into _attribute_cache.
     Attribute keys are "endpoint/cluster/attribute" strings, e.g. "1/1026/0".
     """
-    node_id    = node.get("node_id")
+    node_id = node.get("node_id")
     attributes = node.get("attributes", {})
     if node_id is not None and isinstance(attributes, dict):
         for path, value in attributes.items():
@@ -227,7 +223,7 @@ def _evict_node(node_id: int) -> None:
         del _attribute_cache[key]
 
 
-# ── Public startup ────────────────────────────────────────────────────────────
+# -- Public startup ------------------------------------------------------------
 
 def start_background_listener() -> None:
     """
@@ -238,7 +234,7 @@ def start_background_listener() -> None:
     asyncio.ensure_future(_background_listener())
 
 
-# ── Callback registration ────────────────────────────────────────────────────
+# -- Callback registration ----------------------------------------------------
 
 def register_callback(node_id: int, attribute_path: str, callback) -> None:
     """
@@ -250,7 +246,7 @@ def register_callback(node_id: int, attribute_path: str, callback) -> None:
     Callback signature:
         async def cb(node_id: int, attr_path: str, value: Any) -> None
 
-    Example — persist temperature changes for node 2:
+    Example - persist temperature changes for node 2:
         async def on_temp(node_id, path, value):
             await save_to_db(node_id, value / 100.0)
 
@@ -260,7 +256,7 @@ def register_callback(node_id: int, attribute_path: str, callback) -> None:
     _subscribers.setdefault(key, []).append(callback)
 
 
-# ── Command transport ─────────────────────────────────────────────────────────
+# -- Command transport ---------------------------------------------------------
 
 async def _ws_call(
     command: str,
@@ -272,12 +268,12 @@ async def _ws_call(
 
     Registers an asyncio.Future in _pending keyed by a unique message_id,
     sends the JSON payload over _ws, then awaits the Future. The listener
-    loop resolves the Future when the matching response arrives — no second
+    loop resolves the Future when the matching response arrives - no second
     connection is opened and no subscription events are discarded.
 
     Raises:
-        ConnectionError — not yet connected (listener starting/reconnecting)
-        TimeoutError    — server didn't respond within `timeout` seconds
+        ConnectionError - not yet connected (listener starting/reconnecting)
+        TimeoutError - server didn't respond within `timeout` seconds
     """
     if _ws is None:
         raise ConnectionError(
@@ -304,7 +300,7 @@ async def _ws_call(
         raise
 
 
-# ── Cache helpers ─────────────────────────────────────────────────────────────
+# -- Cache helpers -------------------------------------------------------------
 
 def _find_cached(node_id: int, cluster_id: int, attribute_id: int = 0) -> Optional[Any]:
     """
@@ -326,7 +322,7 @@ def _find_cached(node_id: int, cluster_id: int, attribute_id: int = 0) -> Option
     return None
 
 
-# ── Cache readers ─────────────────────────────────────────────────────────────
+# -- Cache readers -------------------------------------------------------------
 
 def get_cached_temperature(node_id: int) -> Optional[float]:
     """
@@ -385,9 +381,9 @@ def get_cached_sensor_data(node_id: int) -> dict[str, Optional[float]]:
 def get_cached_light_state(node_id: int) -> dict[str, Any]:
     """Full light state (on/off, brightness, colour) in one call."""
     return {
-        "on":         get_cached_on_off(node_id),
+        "on": get_cached_on_off(node_id),
         "brightness": get_cached_brightness(node_id),
-        "color_xy":   get_cached_color_xy(node_id),
+        "color_xy": get_cached_color_xy(node_id),
     }
 
 def get_cached_context(node_id: int) -> dict:
@@ -410,7 +406,7 @@ def get_cached_context(node_id: int) -> dict:
     }
 
 
-# ── Node management ───────────────────────────────────────────────────────────
+# -- Node management -----------------------------------------------------------
 
 async def get_nodes() -> dict[str, Any]:
     """Return all nodes currently in the Matter fabric."""
@@ -426,7 +422,7 @@ async def remove_node(node_id: int) -> dict[str, Any]:
     return await _ws_call("remove_node", {"node_id": node_id})
 
 
-# ── Commissioning ─────────────────────────────────────────────────────────────
+# -- Commissioning -------------------------------------------------------------
 
 async def set_wifi_credentials(ssid: str, password: str) -> dict[str, Any]:
     """
@@ -464,7 +460,7 @@ async def commission_with_code(
     return await _ws_call("commission_with_code", args, timeout=180.0)
 
 
-# ── LED commands ──────────────────────────────────────────────────────────────
+# -- LED commands --------------------------------------------------------------
 
 async def _send_command(
     node_id: int,
@@ -520,7 +516,7 @@ async def set_brightness(
     Set brightness via LevelControl:MoveToLevelWithOnOff.
 
     Uses MoveToLevelWithOnOff (command 4) rather than MoveToLevel (command 0).
-    Colour re-assertion after brightness is handled by the frontend — the hook
+    Colour re-assertion after brightness is handled by the frontend - the hook
     always re-sends the current colour immediately after this command resolves,
     using its locally stored colorHexRef which is never touched by cache polls.
 

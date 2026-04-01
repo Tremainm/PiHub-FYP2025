@@ -5,7 +5,7 @@ from datetime import datetime
 DeviceNameStr = Annotated[str, StringConstraints(min_length=2, max_length=50)]
 
 
-# ── Device registry ───────────────────────────────────────────────────────────
+# -- Device registry -----------------------------------------------------------
 
 class DeviceCreate(BaseModel):
     node_id: int
@@ -18,7 +18,7 @@ class DeviceRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ── Sensor readings ───────────────────────────────────────────────────────────
+# -- Sensor readings -----------------------------------------------------------
 
 class SensorReadingRead(BaseModel):
     id: int
@@ -29,7 +29,7 @@ class SensorReadingRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# ── Matter command payloads ───────────────────────────────────────────────────
+# -- Matter command payloads ---------------------------------------------------
 
 class WifiIn(BaseModel):
     ssid: str
