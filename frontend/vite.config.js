@@ -8,5 +8,12 @@ export default defineConfig({
     environment: 'jsdom',   // simulate browser DOM
     globals: true,          // no need to import describe/it/expect in every file
     setupFiles: './src/test/setup.js',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'text-summary'],
+      include: [
+        
+      ],
+    },
   }
 })
