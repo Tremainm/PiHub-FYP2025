@@ -12,7 +12,8 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'text-summary'],
       include: [
-        'src/components/ColourHelpers.js'
+        'src/components/ColourHelpers.js',
+        'src/components/ChartHelpers.jsx',
       ],
     },
   }
