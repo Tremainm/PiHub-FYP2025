@@ -11,10 +11,8 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary'],
-      include: [
-        'src/components/ColourHelpers.js',
-        'src/components/ChartHelpers.jsx',
-      ],
+      include: ['src/**/*.{js,jsx}'],
+      exclude: ['src/test/**', 'src/main.jsx'],
     },
   }
 })
