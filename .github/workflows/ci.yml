@@ -10,35 +10,58 @@ on:
 
 jobs:
 
-  # ── Test job ───────────────────────────────────────────────────
-  # Runs pytest against the backend before building Docker images.
+  # Backend test job
+  # Runs pytest against the FastAPI app before building Docker images.
   # If tests fail, the docker job is skipped entirely.
-  # test:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-  #     - name: Set up Python
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-  #     - name: Install dependencies
-  #       run: pip install -r backend/requirements.txt
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
 
-  #     - name: Run tests
-  #       # APP_ENV=test makes database.py load .env.test (SQLite, no retries)
-  #       # so tests run without needing a real Postgres container.
-  #       run: |
-  #         cd backend
-  #         APP_ENV=test pytest --cov=app --cov-report=term-missing
+      - name: Run tests
+        # APP_ENV=test makes database.py load .env.test (SQLite, no retries)
+        # so tests run without needing a real Postgres container.
+        run: |
+          cd backend
+          APP_ENV=test pytest --cov=app --cov-report=term-missing
 
-  # ── Docker build + push job ────────────────────────────────────
-  # Only runs if the test job passes.
+  # Frontend test job
+  # Runs Vitest against all src/**/*.{js,jsx} files before building Docker images.
+  # If tests fail, the docker job is skipped entirely.
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Run tests
+        run: npm run coverage
+        working-directory: frontend
+
+  # Docker build + push job
+  # Only runs if both test jobs pass.
   # Builds backend and frontend images and pushes to GHCR.
   docker:
     runs-on: ubuntu-latest
-    # needs: test       # skips this job if tests fail
+    needs: [test-backend, test-frontend]  # skips this job if either test job fails
 
     permissions:
       contents: read
@@ -47,7 +70,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Lowercase the repo owner — GHCR requires lowercase image names.
+      # Lowercase the repo owner - GHCR requires lowercase image names.
       # github.repository_owner can contain uppercase (e.g. TremainM).
       - name: Set image prefix
         run: echo "IMAGE_PREFIX=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/pihub" >> $GITHUB_ENV
@@ -62,7 +85,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # ── Backend ──────────────────────────────────────────────
+      # Backend
       - name: Build and push backend
         uses: docker/build-push-action@v6
         with:
@@ -72,12 +95,12 @@ jobs:
           tags: |
             ${{ env.IMAGE_PREFIX }}-backend:latest
             ${{ env.IMAGE_PREFIX }}-backend:${{ github.sha }}
-          # Cache layers in GHCR — speeds up rebuilds significantly.
+          # Cache layers in GHCR - speeds up rebuilds significantly.
           # mode=max caches all intermediate layers, not just the final image.
           cache-from: type=registry,ref=${{ env.IMAGE_PREFIX }}-backend:buildcache
           cache-to:   type=registry,ref=${{ env.IMAGE_PREFIX }}-backend:buildcache,mode=max
 
-      # ── Frontend ─────────────────────────────────────────────
+      # Frontend
       - name: Build and push frontend
         uses: docker/build-push-action@v6
         with:
