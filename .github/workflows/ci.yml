@@ -1,5 +1,5 @@
 # .github/workflows/ci.yml
-name: CI
+name: PiHub CI
 
 on:
   push:
