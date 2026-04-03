@@ -6,3 +6,6 @@ psycopg[binary]
 paho-mqtt
 python-dotenv
 websockets
+pytest
+pytest-cov
+httpx
