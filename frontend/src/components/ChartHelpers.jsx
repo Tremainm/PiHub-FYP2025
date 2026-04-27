@@ -10,11 +10,11 @@ import {
 // - This week:      "Mon 14:32"
 // - Older:          "12 Jan 14:32"
 export function formatTimestamp(isoString) {
-  const date  = new Date(isoString);
-  const now   = new Date();
+  const date = new Date(isoString);
+  const now = new Date();
 
-  const isToday     = date.toDateString() === now.toDateString();
-  const yesterday   = new Date(now); yesterday.setDate(now.getDate() - 1);
+  const isToday = date.toDateString() === now.toDateString();
+  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
   const isYesterday = date.toDateString() === yesterday.toDateString();
 
   const daysDiff = (now - date) / (1000 * 60 * 60 * 24);
@@ -23,9 +23,9 @@ export function formatTimestamp(isoString) {
   const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const timeShort = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-  if (isToday)     return time;
+  if (isToday) return time;
   if (isYesterday) return `Yesterday ${timeShort}`;
-  if (isThisWeek)  return `${date.toLocaleDateString([], { weekday: "short" })} ${timeShort}`;
+  if (isThisWeek) return `${date.toLocaleDateString([], { weekday: "short" })} ${timeShort}`;
   return `${date.toLocaleDateString([], { day: "numeric", month: "short" })} ${timeShort}`;
 }
 
@@ -34,13 +34,13 @@ export function ChartTooltip({ active, payload, label, unit }) {
   if (!active || !payload?.length) return null;
   return (
     <div style={{
-      background:   "var(--surface)",
-      border:       "1px solid var(--border-strong)",
+      background: "var(--surface)",
+      border: "1px solid var(--border-strong)",
       borderRadius: 8,
-      padding:      "10px 14px",
-      fontSize:     13,
-      fontFamily:   "var(--font-mono)",
-      boxShadow:    "var(--shadow)",
+      padding: "10px 14px",
+      fontSize: 13,
+      fontFamily: "var(--font-mono)",
+      boxShadow: "var(--shadow)",
     }}>
       <p style={{ color: "var(--text-secondary)", marginBottom: 4 }}>{label}</p>
       {payload.map((p) => (
