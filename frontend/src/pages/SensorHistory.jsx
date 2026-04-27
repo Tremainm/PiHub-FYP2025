@@ -8,7 +8,7 @@ const LIMIT_OPTIONS = [20, 50, 100, 200, 500];
 
 const SENSOR_TYPES = [
   { value: "temperature_c", label: "Temperature", unit: "°C",  color: "var(--sensor)" },
-  { value: "humidity_rh",   label: "Humidity",    unit: "%",   color: "var(--led)"    },
+  { value: "humidity_rh", label: "Humidity", unit: "%", color: "var(--led)" },
 ];
 
 export default function SensorHistory() {
@@ -17,10 +17,10 @@ export default function SensorHistory() {
   const navigate = useNavigate();
 
   const [sensorType, setSensorType] = useState("temperature_c");
-  const [limit,      setLimit]      = useState(50);
-  const [charts,     setCharts]     = useState([]);  // accumulated snapshots
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState(null);
+  const [limit, setLimit] = useState(50);
+  const [charts, setCharts] = useState([]);  // accumulated snapshots
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   async function handleLoadChart() {
     setLoading(true);
@@ -43,12 +43,12 @@ export default function SensorHistory() {
       // Prepend so the newest chart appears at the top of the stack
       setCharts((prev) => [
         {
-          id:       Date.now(),
-          dataKey:  sensorType,
-          label:    meta.label,
-          unit:     meta.unit,
-          color:    meta.color,
-          data:     points,
+          id: Date.now(),
+          dataKey: sensorType,
+          label: meta.label,
+          unit: meta.unit,
+          color: meta.color,
+          data: points,
           loadedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         },
         ...prev,

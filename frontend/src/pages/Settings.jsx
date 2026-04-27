@@ -5,19 +5,19 @@ import AppearanceSettings from "../components/AppearanceSettings";
 
 export default function Settings() {
   // --- Wi-Fi credentials --------------------------------------------------------
-  const [ssid,     setSsid]     = useState("");
+  const [ssid, setSsid] = useState("");
   const [password, setPassword] = useState("");
-  const [wifiMsg,  setWifiMsg]  = useState(null);
+  const [wifiMsg, setWifiMsg] = useState(null);
 
   // --- Commissioning --------------------------------------------------------
-  const [pairingCode,   setPairingCode]   = useState("");
-  const [newNodeName,   setNewNodeName]   = useState("");
-  const [networkOnly,   setNetworkOnly]   = useState(false);
+  const [pairingCode, setPairingCode] = useState("");
+  const [newNodeName, setNewNodeName] = useState("");
+  const [networkOnly, setNetworkOnly] = useState(false);
   const [commissionMsg, setCommissionMsg] = useState(null);
   const [commissioning, setCommissioning] = useState(false);
 
   // --- Device management --------------------------------------------------------
-  const [devices,   setDevices]   = useState([]);
+  const [devices, setDevices] = useState([]);
   const [removeMsg, setRemoveMsg] = useState(null);
 
   useEffect(() => { loadDevices(); }, []);

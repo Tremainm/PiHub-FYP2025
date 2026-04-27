@@ -75,7 +75,7 @@ def test_register_device_response_shape(client):
     data = r.json()
     assert data["node_id"] == 1
     assert data["name"] == "Living Room"
-    assert "id" in data
+    assert "id" in data # checks if DB auto-generated a primary key
 
 
 def test_register_duplicate_node_id_returns_409(client):

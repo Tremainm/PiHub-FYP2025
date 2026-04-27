@@ -1,4 +1,3 @@
-# backend/app/database.py
 import os
 import time
 import logging
@@ -65,9 +64,3 @@ SessionLocal = sessionmaker(
     autoflush=False,
     expire_on_commit=False,  # prevents lazy-load errors after commit
 )
-
-# --- Base class for models --------------------------------------------
-# Using the modern DeclarativeBase (SQLAlchemy 2.x style).
-# Import this in models.py: from .database import Base
-class Base(DeclarativeBase):
-    pass

@@ -23,7 +23,6 @@ from app.matter_ws import (
     CLUSTER_HUMIDITY,
 )
 
-
 @pytest.fixture(autouse=True)
 def clear_cache():
     """Reset module-level dicts before and after every test in this file."""
@@ -55,6 +54,7 @@ class TestCacheNode:
         assert _attribute_cache[(1, "1/1026/0")] == 2150
         assert _attribute_cache[(1, "2/1029/0")] == 5940
 
+    # If no node_id - do not cache
     def test_ignores_missing_node_id(self):
         _cache_node({"attributes": {"1/1026/0": 2150}})
         assert (None, "1/1026/0") not in _attribute_cache
@@ -324,6 +324,8 @@ class TestRegisterCallback:
         register_callback(1, "1/1026/0", my_cb)
         assert my_cb in _subscribers[(1, "1/1026/0")]
 
+    # Tests that multiple callbacks on same attribute path appends 
+    # both rather than overwriting
     def test_multiple_callbacks_on_same_key(self):
         async def cb1(node_id, path, value): pass
         async def cb2(node_id, path, value): pass

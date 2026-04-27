@@ -7,6 +7,7 @@ DeviceNameStr = Annotated[str, StringConstraints(min_length=2, max_length=50)]
 
 # -- Device registry -----------------------------------------------------------
 
+# BaseModel - validation, serialisation (JSON, HTTP), FastAPI integration (/docs)
 class DeviceCreate(BaseModel):
     node_id: int
     name: DeviceNameStr
@@ -15,7 +16,9 @@ class DeviceRead(BaseModel):
     id: int
     node_id: int
     name: str
-    model_config = ConfigDict(from_attributes=True)
+
+    # Read data from object attributes, not dict keys. i.e. device.node_id instead of device["node_id"]
+    model_config = ConfigDict(from_attributes=True)     
 
 
 # -- Sensor readings -----------------------------------------------------------

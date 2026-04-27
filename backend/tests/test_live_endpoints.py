@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, patch
 
 def test_live_sensors_no_cache_returns_404(client):
     mock = {"temperature_c": None, "humidity_rh": None, "context_class": None, "context_label": None}
-    with patch("app.main.get_cached_sensor_data", return_value=mock):
+    with patch("app.main.get_cached_sensor_data", return_value=mock):   # fake get_cached_sensor_data using mock data
         r = client.get("/api/matter/nodes/1/sensors/live")
     assert r.status_code == 404
 
