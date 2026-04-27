@@ -136,7 +136,7 @@ async def _background_listener() -> None:
                     if msg_id and msg_id != listen_id and msg_id in _pending:
                         future = _pending.pop(msg_id)
                         if not future.done():
-                            future.set_result(msg)
+                            future.set_result(msg)  # wake up suspended _ws_call()
                         continue
 
                     # -- 2. Initial start_listening node dump --------------
@@ -230,6 +230,12 @@ def start_background_listener() -> None:
     Call once at app startup inside a FastAPI lifespan handler.
     Creates an asyncio task that runs _background_listener() concurrently
     with FastAPI's own event loop.
+
+    If _background_listener() was awaited directly - it would block startup.
+    ensure_future(...) schedules it as an independent task on the event loop.
+
+    It is like a thread - if listener is awaiting, event loop is free to 
+    handle HTTP requests, and vice versa
     """
     asyncio.ensure_future(_background_listener())
 
@@ -265,6 +271,7 @@ async def _ws_call(
 ) -> dict[str, Any]:
     """
     Send a command over the shared persistent connection and await its response.
+    server-level commands - no specific node id, endpoint, cluster needed.
 
     Registers an asyncio.Future in _pending keyed by a unique message_id,
     sends the JSON payload over _ws, then awaits the Future. The listener
@@ -471,6 +478,7 @@ async def _send_command(
 ) -> dict[str, Any]:
     """
     Send a Matter cluster command via python-matter-server's device_command API.
+    device-level commands - need to be routed to a specific node id, endpoint, cluster.
 
     Args:
         node_id:      The commissioned node's ID.
