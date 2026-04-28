@@ -13,6 +13,7 @@
 | [ESP32C3-DHT22-Sensor](https://github.com/Tremainm/ESP32C3-DHT22-Sensor) | DHT22 temperature & humidity sensor node firmware with on-device TinyML (ESP-IDF / ESP-Matter) |
 | [PiHub-deploy](https://github.com/Tremainm/PiHub-deploy) | Deployment repo — Docker Compose two-stack config and `pihub.sh` startup script for the Pi |
 | [train_tinyml](https://github.com/Tremainm/train_tinyml) | TensorFlow/Keras training pipeline for the on-device context classifier |
+| [python-matter-server](https://github.com/matter-js/python-matter-server/pkgs/container/python-matter-server) | python-matter-server WebSocket API GHCR package |
 
 ---
 
